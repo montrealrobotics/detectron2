@@ -128,6 +128,7 @@ class TrainerBase:
             try:
                 self.before_train()
                 for self.iter in range(start_iter, max_iter):
+                    print(self.iter)
                     self.before_step()
                     self.run_step()
                     self.after_step()
@@ -210,6 +211,7 @@ class SimpleTrainer(TrainerBase):
         If your want to do something with the losses, you can wrap the model.
         """
         loss_dict = self.model(data)
+        print(loss_dict)
         losses = sum(loss for loss in loss_dict.values())
         self._detect_anomaly(losses, loss_dict)
 
@@ -222,6 +224,7 @@ class SimpleTrainer(TrainerBase):
         wrap the optimizer with your custom `zero_grad()` method.
         """
         self.optimizer.zero_grad()
+        
         losses.backward()
 
         """
