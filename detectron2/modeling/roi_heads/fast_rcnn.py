@@ -338,6 +338,9 @@ class FastRCNNOutputLayers(nn.Module):
         self.cls_score = nn.Linear(input_size, num_classes + 1)
         num_bbox_reg_classes = 1 if cls_agnostic_bbox_reg else num_classes
         self.bbox_pred = nn.Linear(input_size, num_bbox_reg_classes * box_dim)
+        
+        #### Adding uncertainty prediction(not the best way but a good start) ####
+        self.bbox_uncertainty_pred = nn.Linear(input_size, num_bbox_reg_classes * box_dim)
 
         nn.init.normal_(self.cls_score.weight, std=0.01)
         nn.init.normal_(self.bbox_pred.weight, std=0.001)
