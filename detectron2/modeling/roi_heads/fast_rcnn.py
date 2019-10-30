@@ -124,7 +124,7 @@ class FastRCNNOutputs(object):
     """
 
     def __init__(
-        self, box2box_transform, pred_class_logits, pred_proposal_deltas, proposals, smooth_l1_beta
+        self, box2box_transform, pred_class_logits, pred_proposal_deltas, pred_proposal_uncertain, proposals, smooth_l1_beta
     ):
         """
         Args:
@@ -152,6 +152,7 @@ class FastRCNNOutputs(object):
         self.pred_class_logits = pred_class_logits
         self.pred_proposal_deltas = pred_proposal_deltas
         self.smooth_l1_beta = smooth_l1_beta
+        self.pred_proposal_uncertain = pred_proposal_uncertain
 
         box_type = type(proposals[0].proposal_boxes)
         # cat(..., dim=0) concatenates over all images in the batch
@@ -197,6 +198,68 @@ class FastRCNNOutputs(object):
         """
         self._log_accuracy()
         return F.cross_entropy(self.pred_class_logits, self.gt_classes, reduction="mean")
+
+    def loss_attenuation(self):
+        """
+        Loss attenuation implementation
+
+        Returns:
+            scalar Tensor
+        """
+        gt_proposal_deltas = self.box2box_transform.get_deltas(
+            self.proposals.tensor, self.gt_boxes.tensor
+        )
+        box_dim = gt_proposal_deltas.size(1)  # 4 or 5
+        cls_agnostic_bbox_reg = self.pred_proposal_deltas.size(1) == box_dim
+        device = self.pred_proposal_deltas.device
+
+        bg_class_ind = self.pred_class_logits.shape[1] - 1
+
+        # Box delta loss is only computed between the prediction for the gt class k
+        # (if 0 <= k < bg_class_ind) and the target; there is no loss defined on predictions
+        # for non-gt classes and background.
+        # Empty fg_inds produces a valid loss of zero as long as the size_average
+        # arg to smooth_l1_loss is False (otherwise it uses torch.mean internally
+        # and would produce a nan loss).
+        fg_inds = torch.nonzero((self.gt_classes >= 0) & (self.gt_classes < bg_class_ind)).squeeze(
+            1
+        )
+        if cls_agnostic_bbox_reg:
+            # pred_proposal_deltas only corresponds to foreground class for agnostic
+            gt_class_cols = torch.arange(box_dim, device=device)
+        else:
+            fg_gt_classes = self.gt_classes[fg_inds]
+            # pred_proposal_deltas for class k are located in columns [b * k : b * k + b],
+            # where b is the dimension of box representation (4 or 5)
+            # Note that compared to Detectron1,
+            # we do not perform bounding box regression for background classes.
+            gt_class_cols = box_dim * fg_gt_classes[:, None] + torch.arange(box_dim, device=device)
+
+        ### 
+
+        loss_attenuation_final = ((self.pred_proposal_deltas[fg_inds[:, None], gt_class_cols] - gt_proposal_deltas[fg_inds])**2/(self.pred_proposal_uncertain[fg_inds[:, None], gt_class_cols]) + torch.log(self.pred_proposal_uncertain[fg_inds[:, None], gt_class_cols])).sum()/self.gt_classes.numel()
+
+        # loss_box_reg = smooth_l1_loss(
+        #     self.pred_proposal_deltas[fg_inds[:, None], gt_class_cols],
+        #     gt_proposal_deltas[fg_inds],
+        #     self.smooth_l1_beta,
+        #     reduction="sum",
+        # )
+        # # The loss is normalized using the total number of regions (R), not the number
+        # # of foreground regions even though the box regression loss is only defined on
+        # # foreground regions. Why? Because doing so gives equal training influence to
+        # # each foreground example. To see how, consider two different minibatches:
+        # #  (1) Contains a single foreground region
+        # #  (2) Contains 100 foreground regions
+        # # If we normalize by the number of foreground regions, the single example in
+        # # minibatch (1) will be given 100 times as much influence as each foreground
+        # # example in minibatch (2). Normalizing by the total number of regions, R,
+        # # means that the single example in minibatch (1) and each of the 100 examples
+        # # in minibatch (2) are given equal influence.
+        # loss_box_reg = loss_box_reg / self.gt_classes.numel()
+        # import pdb; pdb.set_trace()
+        return loss_attenuation_final
+
 
     def smooth_l1_loss(self):
         """
@@ -252,20 +315,28 @@ class FastRCNNOutputs(object):
         # means that the single example in minibatch (1) and each of the 100 examples
         # in minibatch (2) are given equal influence.
         loss_box_reg = loss_box_reg / self.gt_classes.numel()
+        # import pdb; pdb.set_trace()
         return loss_box_reg
+
 
     def losses(self):
         """
         Compute the default losses for box head in Fast(er) R-CNN,
-        with softmax cross entropy loss and smooth L1 loss.
+        with softmax cross entropy loss and loss attenuation.
 
         Returns:
-            A dict of losses (scalar tensors) containing keys "loss_cls" and "loss_box_reg".
+            A dict of losses (scalar tensors) containing keys "loss_cls" and "loss_attenuation_final".
         """
+
         return {
-            "loss_cls": self.softmax_cross_entropy_loss(),
-            "loss_box_reg": self.smooth_l1_loss(),
+            "loss_attenuation_final": self.loss_attenuation(),
+            "loss_cls": self.softmax_cross_entropy_loss()
         }
+
+        # return {
+        #     "loss_cls": self.softmax_cross_entropy_loss(),
+        #     "loss_box_reg": self.smooth_l1_loss(),
+        # }
 
     def predict_boxes(self):
         """
@@ -344,12 +415,32 @@ class FastRCNNOutputLayers(nn.Module):
 
         nn.init.normal_(self.cls_score.weight, std=0.01)
         nn.init.normal_(self.bbox_pred.weight, std=0.001)
-        for l in [self.cls_score, self.bbox_pred]:
+        for l in [self.cls_score, self.bbox_pred, self.bbox_uncertainty_pred]:
             nn.init.constant_(l.bias, 0)
+
+    def RichardCurve(self, x, low=0, high=1, sharp=0.5):
+        r"""Applies the generalized logistic function (aka Richard's curve)
+        to the input tensor x.
+
+        Args:
+            x (torch.Tensor): Input tensor over which the generalized logistic
+                function is to be applied (independently over each element)
+            low (float): Lower asymptote of the Richard's curve
+            high (float): Upper asymptote of the Richard's curve
+            sharp (float): Controls the 'sharpness' of the slope for the linear
+                region of Richard's curve
+
+        """
+        return low + ((high - low) / (1 + torch.exp(-sharp * x)))
 
     def forward(self, x):
         if x.dim() > 2:
             x = torch.flatten(x, start_dim=1)
         scores = self.cls_score(x)
         proposal_deltas = self.bbox_pred(x)
-        return scores, proposal_deltas
+
+        ## Because uncertainty is always +ve
+        # proposal_delta_uncertainty = self.RichardCurve(self.bbox_uncertainty_pred(x), low=0, high=10)
+        proposal_delta_uncertainty = self.RichardCurve(self.bbox_uncertainty_pred(x), low=1e-3, high=10, sharp=0.15)
+        # import pdb; pdb.set_trace()
+        return scores, proposal_deltas, proposal_delta_uncertainty

@@ -88,6 +88,8 @@ class GeneralizedRCNN(nn.Module):
         _, detector_losses = self.roi_heads(images, features, proposals, gt_instances)
 
         losses = {}
+        # print(detector_losses)
+        # import pdb; pdb.set_trace()
         losses.update(detector_losses)
         losses.update(proposal_losses)
         return losses

@@ -391,7 +391,7 @@ class Res5ROIHeads(ROIHeads):
         outputs = FastRCNNOutputs(
             self.box2box_transform,
             pred_class_logits,
-            pred_proposal_deltas,
+            pred_proposal_deltas, 
             proposals,
             self.smooth_l1_beta,
         )
@@ -610,13 +610,14 @@ class StandardROIHeads(ROIHeads):
         """
         box_features = self.box_pooler(features, [x.proposal_boxes for x in proposals])
         box_features = self.box_head(box_features)
-        pred_class_logits, pred_proposal_deltas = self.box_predictor(box_features)
+        pred_class_logits, pred_proposal_deltas, pred_proposal_uncertain = self.box_predictor(box_features)
         del box_features
 
         outputs = FastRCNNOutputs(
             self.box2box_transform,
             pred_class_logits,
             pred_proposal_deltas,
+            pred_proposal_uncertain,
             proposals,
             self.smooth_l1_beta,
         )
