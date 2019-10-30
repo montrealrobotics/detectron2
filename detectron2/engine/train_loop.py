@@ -225,13 +225,28 @@ class SimpleTrainer(TrainerBase):
         """
         self.optimizer.zero_grad()
         
-        losses.backward()
+        # import pdb; pdb.set_trace()
+
+        # losses.backward()
+
+        # To avoid bad gradients, this is a temporary "hack" and probably very bad thing to do too, come back again to fix!!
+        if losses.item() < 10:
+            losses.backward()
+            self.optimizer.step()
+        else:
+            print("THE LOSSS RIGHT NOW ISSSS: ", losses.item())
+            # losses.backward()
+        
+        ## getting rid of the bad way of doing things! Gradient clipping now. 
+        # clip_value = 10.0
+        # torch.nn.utils.clip_grad_value_(self.optimizer.param_groups[0]['params'], clip_value = clip_value)
+        # self.optimizer.step()
 
         """
         If you need gradient clipping/scaling or other processing, you can
         wrap the optimizer with your custom `step()` method.
         """
-        self.optimizer.step()
+        
 
     def _detect_anomaly(self, losses, loss_dict):
         if not torch.isfinite(losses).all():
