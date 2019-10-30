@@ -21,6 +21,7 @@ def get_kitti_dicts(root_dir, data_label):
     
     if data_label == 'train':
         image_names = glob.glob(root_dir+"/images/training/*.png")
+        # image_names = image_names[0:10]
     if data_label == 'test':
         image_names = glob.glob(root_dir+"/images/testing/*.png")
     # print(image_names)
@@ -44,7 +45,7 @@ def get_kitti_dicts(root_dir, data_label):
         record["width"] = width
         if data_label == 'train':
             label_name = root_dir+"/labels/training/"+name[-10:-3]+"txt"
-                # print(label_name)
+            print(label_name)
             ob_list = []
             ## Creating a dictionary expected by detectron
             with open(label_name) as file:
@@ -121,12 +122,14 @@ cfg.DATASETS.TRAIN = ("kitti/train",)
 cfg.DATASETS.TEST = ()   # no metrics implemented for this dataset
 cfg.DATALOADER.NUM_WORKERS = 2
 cfg.MODEL.WEIGHTS = "detectron2://COCO-Detection/faster_rcnn_R_101_FPN_3x/137851257/model_final_f6e8b1.pkl"  # initialize from model zoo
+# cfg.MODEL.WEIGHTS = "/network/tmp1/bhattdha/detectron2_kitti/model_0014999.pth"  # initialize fron deterministic model
 cfg.SOLVER.IMS_PER_BATCH = 12
-cfg.SOLVER.BASE_LR = 0.015  
-cfg.SOLVER.MAX_ITER =  40000   # 300 iterations seems good enough, but you can certainly train longer
+# cfg.SOLVER.BASE_LR = 0.015
+cfg.SOLVER.BASE_LR = 0.0003  
+cfg.SOLVER.MAX_ITER =  40000  
 cfg.MODEL.ROI_HEADS.BATCH_SIZE_PER_IMAGE = 128   # faster, and good enough for this toy dataset
 cfg.MODEL.ROI_HEADS.NUM_CLASSES = len(class_list)  #  (kitti)
-cfg.OUTPUT_DIR = '/network/tmp1/bhattdha/detectron2_kitti/'
+cfg.OUTPUT_DIR = '/network/tmp1/bhattdha/detectron2_kitti/diff_richard_curve'
 os.makedirs(cfg.OUTPUT_DIR, exist_ok=True)
 trainer = DefaultTrainer(cfg) 
 trainer.resume_or_load(resume=True)

@@ -8,6 +8,7 @@ from detectron2.structures import BoxMode
 import itertools
 import sys
 # import some common detectron2 utilities
+import pdb
 from detectron2.engine import DefaultPredictor
 from detectron2.config import get_cfg
 from detectron2.utils.visualizer import Visualizer
@@ -105,11 +106,11 @@ cfg.MODEL.WEIGHTS = "detectron2://COCO-Detection/faster_rcnn_R_101_FPN_3x/137851
 # cfg.SOLVER.MAX_ITER =  40000   # 300 iterations seems good enough, but you can certainly train longer
 cfg.MODEL.ROI_HEADS.BATCH_SIZE_PER_IMAGE = 128   # faster, and good enough for this toy dataset
 cfg.MODEL.ROI_HEADS.NUM_CLASSES = len(class_list)  #  (kitti)
-cfg.OUTPUT_DIR = '/network/tmp1/bhattdha/detectron2_kitti/'
+cfg.OUTPUT_DIR = '/network/tmp1/bhattdha/detectron2_kitti/loss_attenuation_training/'
 
 
 """Now, we perform inference with the trained model on the kitti dataset. First, let's create a predictor using the model we just trained:"""
-cfg.MODEL.WEIGHTS = os.path.join(cfg.OUTPUT_DIR, "model_0014999.pth")
+cfg.MODEL.WEIGHTS = os.path.join(cfg.OUTPUT_DIR, "model_0009999.pth")
 cfg.MODEL.ROI_HEADS.SCORE_THRESH_TEST = 0.7   # set the testing threshold for this model
 # cfg.DATASETS.TEST = ("kitti/test", )
 predictor = DefaultPredictor(cfg)
@@ -123,6 +124,7 @@ for idx, im_name in enumerate(image_names):
     print(idx, im_name)
     im = cv2.imread(im_name)
     outputs = predictor(im)
+    # pdb.set_trace()
     v = Visualizer(im[:, :, ::-1],
                    metadata=kitti_metadata, 
                    scale=1.0, 
@@ -132,6 +134,6 @@ for idx, im_name in enumerate(image_names):
     v = v.draw_instance_predictions(outputs["instances"].to("cpu"))
     print("saving images")
     print(type(v))
-    cv2.imwrite("/network/tmp1/bhattdha/detectron2_kitti/test_outputs/" + str(idx).zfill(5) + '.png', v.get_image()[:, :, ::-1]) 
+    cv2.imwrite("/network/tmp1/bhattdha/detectron2_kitti/loss_attenuation_training/test_outputs/" + str(idx).zfill(5) + '.png', v.get_image()[:, :, ::-1]) 
     # cv2_imshow(v.get_image()[:, :, ::-1])
     
