@@ -106,11 +106,11 @@ cfg.MODEL.WEIGHTS = "detectron2://COCO-Detection/faster_rcnn_R_101_FPN_3x/137851
 # cfg.SOLVER.MAX_ITER =  40000   # 300 iterations seems good enough, but you can certainly train longer
 cfg.MODEL.ROI_HEADS.BATCH_SIZE_PER_IMAGE = 128   # faster, and good enough for this toy dataset
 cfg.MODEL.ROI_HEADS.NUM_CLASSES = len(class_list)  #  (kitti)
-cfg.OUTPUT_DIR = '/network/tmp1/bhattdha/detectron2_kitti/loss_attenuation_training/'
+cfg.OUTPUT_DIR = '/network/tmp1/bhattdha/detectron2_kitti/diff_richard_curve/'
 
 
 """Now, we perform inference with the trained model on the kitti dataset. First, let's create a predictor using the model we just trained:"""
-cfg.MODEL.WEIGHTS = os.path.join(cfg.OUTPUT_DIR, "model_0009999.pth")
+cfg.MODEL.WEIGHTS = os.path.join(cfg.OUTPUT_DIR, "model_0039999.pth")
 cfg.MODEL.ROI_HEADS.SCORE_THRESH_TEST = 0.7   # set the testing threshold for this model
 # cfg.DATASETS.TEST = ("kitti/test", )
 predictor = DefaultPredictor(cfg)
@@ -134,6 +134,6 @@ for idx, im_name in enumerate(image_names):
     v = v.draw_instance_predictions(outputs["instances"].to("cpu"))
     print("saving images")
     print(type(v))
-    cv2.imwrite("/network/tmp1/bhattdha/detectron2_kitti/loss_attenuation_training/test_outputs/" + str(idx).zfill(5) + '.png', v.get_image()[:, :, ::-1]) 
+    cv2.imwrite("/network/tmp1/bhattdha/detectron2_kitti/diff_richard_curve/test_outputs/" + str(idx).zfill(5) + '.png', v.get_image()[:, :, ::-1]) 
     # cv2_imshow(v.get_image()[:, :, ::-1])
     

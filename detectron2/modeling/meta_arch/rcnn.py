@@ -31,7 +31,7 @@ class GeneralizedRCNN(nn.Module):
         self.backbone = build_backbone(cfg)
         self.proposal_generator = build_proposal_generator(cfg, self.backbone.output_shape())
         self.roi_heads = build_roi_heads(cfg, self.backbone.output_shape())
-
+        # self.cfg = cfg
         assert len(cfg.MODEL.PIXEL_MEAN) == len(cfg.MODEL.PIXEL_STD)
         num_channels = len(cfg.MODEL.PIXEL_MEAN)
         pixel_mean = torch.Tensor(cfg.MODEL.PIXEL_MEAN).to(self.device).view(num_channels, 1, 1)
@@ -115,7 +115,7 @@ class GeneralizedRCNN(nn.Module):
 
         images = self.preprocess_image(batched_inputs)
         features = self.backbone(images.tensor)
-
+        # import pdb; pdb.set_trace()
         if detected_instances is None:
             if self.proposal_generator:
                 proposals, _ = self.proposal_generator(images, features, None)
