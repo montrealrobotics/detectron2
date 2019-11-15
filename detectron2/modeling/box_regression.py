@@ -111,6 +111,8 @@ class Box2BoxXYXYTransform(object):
     The transformation is parameterized
     by 4 deltas: (dx1, dy1, dx2, dy2). The transformation shifts a box's corners 
     by the offset (dx * width, dy * height).
+
+    Was used in https://arxiv.org/pdf/1809.08545.pdf
     """
 
     def __init__(self, weights, scale_clamp=_DEFAULT_SCALE_CLAMP):
