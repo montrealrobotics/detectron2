@@ -11,7 +11,7 @@ from detectron2.utils.events import get_event_storage
 from detectron2.utils.registry import Registry
 
 from ..backbone.resnet import BottleneckBlock, make_stage
-from ..box_regression import Box2BoxTransform
+from ..box_regression import Box2BoxTransform, Box2BoxXYXYTransform
 from ..matcher import Matcher
 from ..poolers import ROIPooler
 from ..proposal_generator.proposal_utils import add_ground_truth_to_proposals
@@ -149,7 +149,10 @@ class ROIHeads(torch.nn.Module):
         )
 
         # Box2BoxTransform for bounding box regression
-        self.box2box_transform = Box2BoxTransform(weights=cfg.MODEL.ROI_BOX_HEAD.BBOX_REG_WEIGHTS)
+        if cfg.CUSTOM_OPTIONS.ENCODING_TYPE is 'xyxy':
+            self.box2box_transform = Box2BoxXYXYTransform(weights=cfg.MODEL.ROI_BOX_HEAD.BBOX_REG_WEIGHTS)
+        else:
+            self.box2box_transform = Box2BoxTransform(weights=cfg.MODEL.ROI_BOX_HEAD.BBOX_REG_WEIGHTS)
 
     def _sample_proposals(self, matched_idxs, matched_labels, gt_classes):
         """
