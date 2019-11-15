@@ -237,28 +237,10 @@ class FastRCNNOutputs(object):
 
         ### 
 
+        ## Computing the loss attenuation
         loss_attenuation_final = ((self.pred_proposal_deltas[fg_inds[:, None], gt_class_cols] - gt_proposal_deltas[fg_inds])**2/(self.pred_proposal_uncertain[fg_inds[:, None], gt_class_cols]) + torch.log(self.pred_proposal_uncertain[fg_inds[:, None], gt_class_cols])).sum()/self.gt_classes.numel()
 
-        # loss_box_reg = smooth_l1_loss(
-        #     self.pred_proposal_deltas[fg_inds[:, None], gt_class_cols],
-        #     gt_proposal_deltas[fg_inds],
-        #     self.smooth_l1_beta,
-        #     reduction="sum",
-        # )
-        # # The loss is normalized using the total number of regions (R), not the number
-        # # of foreground regions even though the box regression loss is only defined on
-        # # foreground regions. Why? Because doing so gives equal training influence to
-        # # each foreground example. To see how, consider two different minibatches:
-        # #  (1) Contains a single foreground region
-        # #  (2) Contains 100 foreground regions
-        # # If we normalize by the number of foreground regions, the single example in
-        # # minibatch (1) will be given 100 times as much influence as each foreground
-        # # example in minibatch (2). Normalizing by the total number of regions, R,
-        # # means that the single example in minibatch (1) and each of the 100 examples
-        # # in minibatch (2) are given equal influence.
-        # loss_box_reg = loss_box_reg / self.gt_classes.numel()
-        # import pdb; pdb.set_trace()
-        return loss_attenuation_final
+       return loss_attenuation_final
 
 
     def smooth_l1_loss(self):
@@ -319,14 +301,31 @@ class FastRCNNOutputs(object):
         return loss_box_reg
 
 
-    def losses(self):
+    def losses(self, loss_type):
         """
         Compute the default losses for box head in Fast(er) R-CNN,
         with softmax cross entropy loss and loss attenuation.
+        Args:
+            loss_type: determines what type of loss to apply
+            could be ['None', 'loss_att', 'cal_loss']
 
         Returns:
             A dict of losses (scalar tensors) containing keys "loss_cls" and "loss_attenuation_final".
         """
+
+        if loss_type is 'smooth_l1':
+            loss_name = 'smooth_l1_loss'
+            loss_reg = self.smooth_l1_loss()
+        elif loss_type is 'loss_att':
+            loss_name = 'loss_attenuation'
+            loss_reg = self.loss_attenuation()
+        elif loss_type is 'loss_cal':
+            loss_name = 'loss_calibration'
+            '''
+                To be implemented
+            '''
+
+            # loss_reg = self.loss_attenuation()
 
         return {
             "loss_attenuation_final": self.loss_attenuation(),
