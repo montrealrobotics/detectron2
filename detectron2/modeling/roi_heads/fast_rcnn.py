@@ -124,7 +124,7 @@ class FastRCNNOutputs(object):
     """
 
     def __init__(
-        self, box2box_transform, pred_class_logits, pred_proposal_deltas, pred_proposal_uncertain, proposals, smooth_l1_beta
+        self, box2box_transform, pred_class_logits, pred_proposal_deltas, pred_proposal_uncertain, proposals, smooth_l1_beta, loss_type
     ):
         """
         Args:
@@ -153,7 +153,7 @@ class FastRCNNOutputs(object):
         self.pred_proposal_deltas = pred_proposal_deltas
         self.smooth_l1_beta = smooth_l1_beta
         self.pred_proposal_uncertain = pred_proposal_uncertain
-
+        self.loss_type = loss_type
         box_type = type(proposals[0].proposal_boxes)
         # cat(..., dim=0) concatenates over all images in the batch
         self.proposals = box_type.cat([p.proposal_boxes for p in proposals])
@@ -313,13 +313,13 @@ class FastRCNNOutputs(object):
             A dict of losses (scalar tensors) containing keys "loss_cls" and "loss_attenuation_final".
         """
 
-        if loss_type is 'smooth_l1':
+        if self.loss_type is 'smooth_l1':
             loss_name = 'smooth_l1_loss'
             loss_reg = self.smooth_l1_loss()
-        elif loss_type is 'loss_att':
+        elif self.loss_type is 'loss_att':
             loss_name = 'loss_attenuation'
             loss_reg = self.loss_attenuation()
-        elif loss_type is 'loss_cal':
+        elif self.loss_type is 'loss_cal':
             loss_name = 'loss_calibration'
             '''
                 To be implemented

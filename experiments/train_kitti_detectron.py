@@ -12,6 +12,7 @@ from detectron2.engine import DefaultPredictor
 from detectron2.config import get_cfg
 from detectron2.utils.visualizer import Visualizer
 from detectron2.data import MetadataCatalog
+from contextlib import redirect_stdout
 
 class_list = ['Car', 'Van', 'Truck', 'Tram']
 
@@ -130,7 +131,12 @@ cfg.SOLVER.MAX_ITER =  40000
 cfg.MODEL.ROI_HEADS.BATCH_SIZE_PER_IMAGE = 128   # faster, and good enough for this toy dataset
 cfg.MODEL.ROI_HEADS.NUM_CLASSES = len(class_list)  #  (kitti)
 cfg.OUTPUT_DIR = '/network/tmp1/bhattdha/detectron2_kitti/diff_richard_curve'
+if cfg.CUSTOM_OPTIONS.DETECTOR_TYPE is 'deterministic':
+    ## has to be smooth l1 loss if detector is deterministc
+    cfg.CUSTOM_OPTIONS.LOSS_TYPE_REG = 'smooth_l1'
+
 os.makedirs(cfg.OUTPUT_DIR, exist_ok=True)
+
 trainer = DefaultTrainer(cfg) 
 trainer.resume_or_load(resume=True)
 print("start training")

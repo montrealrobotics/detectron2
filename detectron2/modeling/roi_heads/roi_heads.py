@@ -139,6 +139,7 @@ class ROIHeads(torch.nn.Module):
         self.feature_channels         = {k: v.channels for k, v in input_shape.items()}
         self.cls_agnostic_bbox_reg    = cfg.MODEL.ROI_BOX_HEAD.CLS_AGNOSTIC_BBOX_REG
         self.smooth_l1_beta           = cfg.MODEL.ROI_BOX_HEAD.SMOOTH_L1_BETA
+        self.loss_type                = cfg.CUSTOM_OPTIONS.LOSS_TYPE_REG
         # fmt: on
 
         # Matcher to assign box proposals to gt boxes
@@ -324,7 +325,7 @@ class Res5ROIHeads(ROIHeads):
         self.mask_on      = cfg.MODEL.MASK_ON
         # fmt: on
         assert not cfg.MODEL.KEYPOINT_ON
-
+        self.cfg = cfg
         self.pooler = ROIPooler(
             output_size=pooler_resolution,
             scales=pooler_scales,
@@ -398,6 +399,7 @@ class Res5ROIHeads(ROIHeads):
             pred_proposal_uncertain,
             proposals,
             self.smooth_l1_beta,
+            self.loss_type,
         )
 
         if self.training:
@@ -625,7 +627,9 @@ class StandardROIHeads(ROIHeads):
             pred_proposal_uncertain,
             proposals,
             self.smooth_l1_beta,
+            self.loss_type,
         )
+
         if self.training:
             return outputs.losses()
         else:

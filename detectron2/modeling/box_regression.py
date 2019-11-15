@@ -68,7 +68,7 @@ class Box2BoxTransform(object):
 
     def apply_deltas(self, deltas, boxes):
         """
-        Apply transformation `deltas` (dx, dy, dw, dh) to `boxes`.
+        Apply transformation `deltas` (dx1, dy1, dx2, dy2) to `boxes`.
 
         Args:
             deltas (Tensor): transformation deltas of shape (N, k*4), where k >= 1.
