@@ -331,7 +331,7 @@ class Res5ROIHeads(ROIHeads):
 
         self.res5, out_channels = self._build_res5_block(cfg)
         self.box_predictor = FastRCNNOutputLayers(
-            out_channels, self.num_classes, self.cls_agnostic_bbox_reg
+            out_channels, self.num_classes, self.cls_agnostic_bbox_reg, cfg = cfg
         )
 
         if self.mask_on:
@@ -385,13 +385,14 @@ class Res5ROIHeads(ROIHeads):
             [features[f] for f in self.in_features], proposal_boxes
         )
         feature_pooled = box_features.mean(dim=[2, 3])  # pooled to 1x1
-        pred_class_logits, pred_proposal_deltas = self.box_predictor(feature_pooled)
+        pred_class_logits, pred_proposal_deltas,  pred_proposal_uncertain= self.box_predictor(feature_pooled)
         del feature_pooled
 
         outputs = FastRCNNOutputs(
             self.box2box_transform,
             pred_class_logits,
             pred_proposal_deltas, 
+            pred_proposal_uncertain,
             proposals,
             self.smooth_l1_beta,
         )
@@ -462,6 +463,7 @@ class StandardROIHeads(ROIHeads):
         self._init_box_head(cfg)
         self._init_mask_head(cfg)
         self._init_keypoint_head(cfg)
+        self.cfg = cfg
 
     def _init_box_head(self, cfg):
         # fmt: off
@@ -491,7 +493,7 @@ class StandardROIHeads(ROIHeads):
             cfg, ShapeSpec(channels=in_channels, height=pooler_resolution, width=pooler_resolution)
         )
         self.box_predictor = FastRCNNOutputLayers(
-            self.box_head.output_size, self.num_classes, self.cls_agnostic_bbox_reg
+            self.box_head.output_size, self.num_classes, self.cls_agnostic_bbox_reg, cfg = cfg
         )
 
     def _init_mask_head(self, cfg):

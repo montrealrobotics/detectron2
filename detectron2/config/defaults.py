@@ -561,3 +561,17 @@ _C.CUDNN_BENCHMARK = False
 # Do not commit any configs into it.
 _C.GLOBAL = CN()
 _C.GLOBAL.HACK = 1.0
+
+
+
+# ---------------------------------------------------------------------------- #
+# Custom options
+# ---------------------------------------------------------------------------- #
+
+_C.CUSTOM_OPTIONS = CN()
+
+## Could be 'deterministic' or 'probabilistic'
+_C.CUSTOM_OPTIONS.DETECTOR_TYPE = 'probabilistic'
+
+## Could be 'xyxy' or 'xywh'
+_C.CUSTOM_OPTIONS.ENCODING_TYPE = 'xyxy'

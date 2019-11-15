@@ -390,7 +390,7 @@ class FastRCNNOutputLayers(nn.Module):
       (2) classification scores
     """
 
-    def __init__(self, input_size, num_classes, cls_agnostic_bbox_reg, box_dim=4):
+    def __init__(self, input_size, num_classes, cls_agnostic_bbox_reg, box_dim=4, cfg=None):
         """
         Args:
             input_size (int): channels, or (channels, height, width)
@@ -398,9 +398,10 @@ class FastRCNNOutputLayers(nn.Module):
             cls_agnostic_bbox_reg (bool): whether to use class agnostic for bbox regression
             box_dim (int): the dimension of bounding boxes.
                 Example box dimensions: 4 for regular XYXY boxes and 5 for rotated XYWHA boxes
+            cfg: config file for type of detector(deterministic or probabilitic)
         """
         super(FastRCNNOutputLayers, self).__init__()
-
+        self.cfg = cfg
         if not isinstance(input_size, int):
             input_size = np.prod(input_size)
 
@@ -410,13 +411,18 @@ class FastRCNNOutputLayers(nn.Module):
         num_bbox_reg_classes = 1 if cls_agnostic_bbox_reg else num_classes
         self.bbox_pred = nn.Linear(input_size, num_bbox_reg_classes * box_dim)
         
-        #### Adding uncertainty prediction(not the best way but a good start) ####
-        self.bbox_uncertainty_pred = nn.Linear(input_size, num_bbox_reg_classes * box_dim)
-
         nn.init.normal_(self.cls_score.weight, std=0.01)
         nn.init.normal_(self.bbox_pred.weight, std=0.001)
-        for l in [self.cls_score, self.bbox_pred, self.bbox_uncertainty_pred]:
+
+        for l in [self.cls_score, self.bbox_pred]:
             nn.init.constant_(l.bias, 0)
+        if cfg is not None: 
+            if cfg.CUSTOM_OPTIONS.DETECTOR_TYPE is 'probabilistic': 
+                #### Adding uncertainty prediction(not the best way but a good start) ####
+                self.bbox_uncertainty_pred = nn.Linear(input_size, num_bbox_reg_classes * box_dim)
+                nn.init.normal_(self.bbox_uncertainty_pred.weight, std=0.001)
+                nn.init.constant_(self.bbox_uncertainty_pred.bias, 0)
+
 
     def RichardCurve(self, x, low=0, high=1, sharp=0.5):
         r"""Applies the generalized logistic function (aka Richard's curve)
@@ -441,6 +447,12 @@ class FastRCNNOutputLayers(nn.Module):
 
         ## Because uncertainty is always +ve
         # proposal_delta_uncertainty = self.RichardCurve(self.bbox_uncertainty_pred(x), low=0, high=10)
-        proposal_delta_uncertainty = self.RichardCurve(self.bbox_uncertainty_pred(x), low=1e-3, high=10, sharp=0.15)
+        if self.cfg is not None:
+            if cfg.CUSTOM_OPTIONS.DETECTOR_TYPE is 'probabilistic': 
+                proposal_delta_uncertainty = self.RichardCurve(self.bbox_uncertainty_pred(x), low=1e-3, high=10, sharp=0.15)
+                return scores, proposal_deltas, proposal_delta_uncertainty
+            else:
+                return scores, proposal_deltas, None
         # import pdb; pdb.set_trace()
-        return scores, proposal_deltas, proposal_delta_uncertainty
+        return scores, proposal_deltas, None
+        
