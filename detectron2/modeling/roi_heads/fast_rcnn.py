@@ -146,6 +146,8 @@ class FastRCNNOutputs(object):
             smooth_l1_beta (float): The transition point between L1 and L2 loss in
                 the smooth L1 loss function. When set to 0, the loss becomes L1. When
                 set to +inf, the loss becomes constant 0.
+            loss_type (string): determines what type of loss to apply
+                could be ['smooth_l1', 'loss_att', 'cal_loss']
         """
         self.box2box_transform = box2box_transform
         self.num_preds_per_image = [len(p) for p in proposals]
@@ -240,7 +242,7 @@ class FastRCNNOutputs(object):
         ## Computing the loss attenuation
         loss_attenuation_final = ((self.pred_proposal_deltas[fg_inds[:, None], gt_class_cols] - gt_proposal_deltas[fg_inds])**2/(self.pred_proposal_uncertain[fg_inds[:, None], gt_class_cols]) + torch.log(self.pred_proposal_uncertain[fg_inds[:, None], gt_class_cols])).sum()/self.gt_classes.numel()
 
-       return loss_attenuation_final
+        return loss_attenuation_final
 
 
     def smooth_l1_loss(self):
@@ -301,13 +303,10 @@ class FastRCNNOutputs(object):
         return loss_box_reg
 
 
-    def losses(self, loss_type):
+    def losses(self):
         """
         Compute the default losses for box head in Fast(er) R-CNN,
-        with softmax cross entropy loss and loss attenuation.
-        Args:
-            loss_type: determines what type of loss to apply
-            could be ['None', 'loss_att', 'cal_loss']
+        with softmax cross entropy loss and regression loss.
 
         Returns:
             A dict of losses (scalar tensors) containing keys "loss_cls" and "loss_attenuation_final".
@@ -328,7 +327,7 @@ class FastRCNNOutputs(object):
             # loss_reg = self.loss_attenuation()
 
         return {
-            "loss_attenuation_final": self.loss_attenuation(),
+            loss_name: loss_reg,
             "loss_cls": self.softmax_cross_entropy_loss()
         }
 
@@ -448,7 +447,8 @@ class FastRCNNOutputLayers(nn.Module):
         # proposal_delta_uncertainty = self.RichardCurve(self.bbox_uncertainty_pred(x), low=0, high=10)
         if self.cfg is not None:
             if cfg.CUSTOM_OPTIONS.DETECTOR_TYPE is 'probabilistic': 
-                proposal_delta_uncertainty = self.RichardCurve(self.bbox_uncertainty_pred(x), low=1e-3, high=10, sharp=0.15)
+                # proposal_delta_uncertainty = self.RichardCurve(self.bbox_uncertainty_pred(x), low=1e-3, high=10, sharp=0.15) ## This was used for the model that works
+                proposal_delta_uncertainty = self.RichardCurve(self.bbox_uncertainty_pred(x), low=self.cfg.CUSTOM_OPTIONS.RICHARD_CURVE_LOW, high=self.cfg.CUSTOM_OPTIONS.RICHARD_CURVE_HIGH, sharp=self.cfg.CUSTOM_OPTIONS.RICHARD_CURVE_SHARP) ## This was used for the model that works
                 return scores, proposal_deltas, proposal_delta_uncertainty
             else:
                 return scores, proposal_deltas, None

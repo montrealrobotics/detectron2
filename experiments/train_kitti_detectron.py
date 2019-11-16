@@ -10,6 +10,7 @@ import sys
 # import some common detectron2 utilities
 from detectron2.engine import DefaultPredictor
 from detectron2.config import get_cfg
+import torch
 from detectron2.utils.visualizer import Visualizer
 from detectron2.data import MetadataCatalog
 from contextlib import redirect_stdout
@@ -81,6 +82,9 @@ def get_kitti_dicts(root_dir, data_label):
 
     return dataset_dicts
 
+
+
+
 from detectron2.data import DatasetCatalog, MetadataCatalog
 
 root_dir = '/network/tmp1/bhattdha/kitti_dataset'
@@ -135,7 +139,11 @@ if cfg.CUSTOM_OPTIONS.DETECTOR_TYPE is 'deterministic':
     ## has to be smooth l1 loss if detector is deterministc
     cfg.CUSTOM_OPTIONS.LOSS_TYPE_REG = 'smooth_l1'
 
+
 os.makedirs(cfg.OUTPUT_DIR, exist_ok=True)
+
+### At this point, we will save the config as it becomes vital for testing in future
+torch.save({'cfg': cfg})
 
 trainer = DefaultTrainer(cfg) 
 trainer.resume_or_load(resume=True)

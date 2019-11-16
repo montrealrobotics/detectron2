@@ -389,7 +389,7 @@ class Res5ROIHeads(ROIHeads):
             [features[f] for f in self.in_features], proposal_boxes
         )
         feature_pooled = box_features.mean(dim=[2, 3])  # pooled to 1x1
-        pred_class_logits, pred_proposal_deltas,  pred_proposal_uncertain= self.box_predictor(feature_pooled)
+        pred_class_logits, pred_proposal_deltas,  pred_proposal_uncertain = self.box_predictor(feature_pooled)
         del feature_pooled
 
         outputs = FastRCNNOutputs(

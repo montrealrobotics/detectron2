@@ -580,3 +580,8 @@ _C.CUSTOM_OPTIONS.ENCODING_TYPE = 'xyxy'
 ## loss type regression when DETECTOR_TYPE is probabilistic: ['smooth_l1', loss_att', 'loss_cal']
 ## Will be changes to smooth_l1_loss by default if detector is deterministic 
 _C.CUSTOM_OPTIONS.LOSS_TYPE_REG = 'loss_att'
+
+## parameters for richard's curve
+_C.CUSTOM_OPTIONS.RICHARD_CURVE_LOW = 0
+_C.CUSTOM_OPTIONS.RICHARD_CURVE_HIGH = 30
+_C.CUSTOM_OPTIONS.RICHARD_CURVE_SHARP = 0.15
