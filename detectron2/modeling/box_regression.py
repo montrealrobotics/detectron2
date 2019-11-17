@@ -153,12 +153,14 @@ class Box2BoxXYXYTransform(object):
         target_ctr_x1 = target_boxes[:, 0]
         target_ctr_y1 = target_boxes[:, 1]
         target_ctr_x2 = target_boxes[:, 2]
-        target_ctr_y1 = target_boxes[:, 3]
+        target_ctr_y2 = target_boxes[:, 3]
         
-        dx1 = (target_ctr_x1 - src_ctr_x1) / src_widths
-        dx2 = (target_ctr_x2 - src_ctr_x2) / src_widths
-        dy1 = (target_ctr_y1 - src_ctr_y1) / src_heights
-        dy2 = (target_ctr_y2 - src_ctr_y2) / src_heights
+        wx1, wy1, wx2, wy2 = self.weights
+
+        dx1 = wx1 * (target_ctr_x1 - src_ctr_x1) / src_widths
+        dx2 = wx2 * (target_ctr_x2 - src_ctr_x2) / src_widths
+        dy1 = wy1 * (target_ctr_y1 - src_ctr_y1) / src_heights
+        dy2 = wy2 * (target_ctr_y2 - src_ctr_y2) / src_heights
         
 
         deltas = torch.stack((dx1, dy1, dx2, dy2), dim=1)
@@ -175,21 +177,31 @@ class Box2BoxXYXYTransform(object):
                 box transformations for the single box boxes[i].
             boxes (Tensor): boxes to transform, of shape (N, 4)
         """
+
         assert torch.isfinite(deltas).all().item(), "Box regression deltas become infinite or NaN!"
         boxes = boxes.to(deltas.dtype)
 
-        ## deltas
-        dx1 = deltas[:, 0::4]
-        dy1 = deltas[:, 1::4]
-        dx2 = deltas[:, 2::4]
-        dy2 = deltas[:, 3::4]
+        widths = boxes[:, 2] - boxes[:, 0]
+        heights = boxes[:, 3] - boxes[:, 1]
 
-        ### boxes
+       	wx1, wy1, wx2, wy2 = self.weights
+
+        ## deltas
+        dx1 = deltas[:, 0::4] / wx1
+        dy1 = deltas[:, 1::4] / wy1
+        dx2 = deltas[:, 2::4] / wx2
+        dy2 = deltas[:, 3::4] / wy2
+
+        x1_box = boxes[:, 0]
+        y1_box = boxes[:, 1]
+        x2_box = boxes[:, 2]
+        y2_box = boxes[:, 3]
+
         pred_boxes = torch.zeros_like(deltas)
-        pred_boxes[:, 0::4] = dx1 * widths[:, None] + boxes[:, 0]  # x1
-        pred_boxes[:, 1::4] = dy1 * heights[:, None] + boxes[:, 1]  # y1
-        pred_boxes[:, 2::4] = dx2 * widths[:, None] + boxes[:, 2]  # x2  
-        pred_boxes[:, 3::4] = dy2 * heights[:, None] + boxes[:, 3]  # y2
+        pred_boxes[:, 0::4] = dx1 * widths[:, None] + x1_box[:, None]  # x1
+        pred_boxes[:, 1::4] = dy1 * heights[:, None] + y1_box[:, None]  # y1
+        pred_boxes[:, 2::4] = dx2 * widths[:, None] + x2_box[:, None]  # x2  
+        pred_boxes[:, 3::4] = dy2 * heights[:, None] + y2_box[:, None]  # y2
         return pred_boxes
 
 

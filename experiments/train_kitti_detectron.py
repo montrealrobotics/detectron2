@@ -14,6 +14,15 @@ import torch
 from detectron2.utils.visualizer import Visualizer
 from detectron2.data import MetadataCatalog
 from contextlib import redirect_stdout
+import argparse
+
+
+ap = argparse.ArgumentParser()
+ap.add_argument("-name", "--experiment_comment", required = True, help="Comments for the experiment")
+
+args = vars(ap.parse_args())
+
+dir_name = args['experiment_comment']
 
 class_list = ['Car', 'Van', 'Truck', 'Tram']
 
@@ -84,7 +93,6 @@ def get_kitti_dicts(root_dir, data_label):
 
 
 
-
 from detectron2.data import DatasetCatalog, MetadataCatalog
 
 root_dir = '/network/tmp1/bhattdha/kitti_dataset'
@@ -134,16 +142,16 @@ cfg.SOLVER.BASE_LR = 0.0003
 cfg.SOLVER.MAX_ITER =  40000  
 cfg.MODEL.ROI_HEADS.BATCH_SIZE_PER_IMAGE = 128   # faster, and good enough for this toy dataset
 cfg.MODEL.ROI_HEADS.NUM_CLASSES = len(class_list)  #  (kitti)
-cfg.OUTPUT_DIR = '/network/tmp1/bhattdha/detectron2_kitti/diff_richard_curve'
+cfg.OUTPUT_DIR = '/network/tmp1/bhattdha/detectron2_kitti/' + dir_name
+
 if cfg.CUSTOM_OPTIONS.DETECTOR_TYPE is 'deterministic':
     ## has to be smooth l1 loss if detector is deterministc
     cfg.CUSTOM_OPTIONS.LOSS_TYPE_REG = 'smooth_l1'
 
 
 os.makedirs(cfg.OUTPUT_DIR, exist_ok=True)
-
 ### At this point, we will save the config as it becomes vital for testing in future
-torch.save({'cfg': cfg})
+torch.save({'cfg': cfg}, cfg.OUTPUT_DIR + '/' + dir_name + '_cfg.final')
 
 trainer = DefaultTrainer(cfg) 
 trainer.resume_or_load(resume=True)
@@ -151,28 +159,28 @@ print("start training")
 trainer.train()
 
 
-"""Now, we perform inference with the trained model on the balloon validation dataset. First, let's create a predictor using the model we just trained:"""
+# """Now, we perform inference with the trained model on the balloon validation dataset. First, let's create a predictor using the model we just trained:"""
 
-cfg.MODEL.WEIGHTS = os.path.join(cfg.OUTPUT_DIR, "model_final.pth")
-cfg.MODEL.ROI_HEADS.SCORE_THRESH_TEST = 0.7   # set the testing threshold for this model
-cfg.DATASETS.TEST = ("kitti/test", )
-predictor = DefaultPredictor(cfg)
+# cfg.MODEL.WEIGHTS = os.path.join(cfg.OUTPUT_DIR, "model_final.pth")
+# cfg.MODEL.ROI_HEADS.SCORE_THRESH_TEST = 0.7   # set the testing threshold for this model
+# cfg.DATASETS.TEST = ("kitti/test", )
+# predictor = DefaultPredictor(cfg)
 
-"""Then, we randomly select several samples to visualize the prediction results."""
+# """Then, we randomly select several samples to visualize the prediction results."""
 
-from detectron2.utils.visualizer import ColorMode
-dataset_dicts = get_kitti_dicts("/network/tmp1/bhattdha/kitti_dataset", 'test')
-for d in random.sample(dataset_dicts, 3):    
-    im = cv2.imread(d["file_name"])
-    print(im)
-    outputs = predictor(im)
-    v = Visualizer(im[:, :, ::-1],
-                   metadata=kitti_metadata, 
-                   scale=1.0, 
-                   instance_mode=ColorMode.IMAGE_BW   # remove the colors of unsegmented pixels
-    )
+# from detectron2.utils.visualizer import ColorMode
+# dataset_dicts = get_kitti_dicts("/network/tmp1/bhattdha/kitti_dataset", 'test')
+# for d in random.sample(dataset_dicts, 3):    
+#     im = cv2.imread(d["file_name"])
+#     print(im)
+#     outputs = predictor(im)
+#     v = Visualizer(im[:, :, ::-1],
+#                    metadata=kitti_metadata, 
+#                    scale=1.0, 
+#                    instance_mode=ColorMode.IMAGE_BW   # remove the colors of unsegmented pixels
+#     )
 
-    v = v.draw_instance_predictions(outputs["instances"].to("cpu"))
+#     v = v.draw_instance_predictions(outputs["instances"].to("cpu"))
     
-    # cv2_imshow(v.get_image()[:, :, ::-1])
+#     # cv2_imshow(v.get_image()[:, :, ::-1])
     

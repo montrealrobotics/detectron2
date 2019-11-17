@@ -446,7 +446,7 @@ class FastRCNNOutputLayers(nn.Module):
         ## Because uncertainty is always +ve
         # proposal_delta_uncertainty = self.RichardCurve(self.bbox_uncertainty_pred(x), low=0, high=10)
         if self.cfg is not None:
-            if cfg.CUSTOM_OPTIONS.DETECTOR_TYPE is 'probabilistic': 
+            if self.cfg.CUSTOM_OPTIONS.DETECTOR_TYPE is 'probabilistic': 
                 # proposal_delta_uncertainty = self.RichardCurve(self.bbox_uncertainty_pred(x), low=1e-3, high=10, sharp=0.15) ## This was used for the model that works
                 proposal_delta_uncertainty = self.RichardCurve(self.bbox_uncertainty_pred(x), low=self.cfg.CUSTOM_OPTIONS.RICHARD_CURVE_LOW, high=self.cfg.CUSTOM_OPTIONS.RICHARD_CURVE_HIGH, sharp=self.cfg.CUSTOM_OPTIONS.RICHARD_CURVE_SHARP) ## This was used for the model that works
                 return scores, proposal_deltas, proposal_delta_uncertainty

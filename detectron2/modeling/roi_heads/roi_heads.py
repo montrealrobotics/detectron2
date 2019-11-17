@@ -151,7 +151,7 @@ class ROIHeads(torch.nn.Module):
 
         # Box2BoxTransform for bounding box regression
         if cfg.CUSTOM_OPTIONS.ENCODING_TYPE is 'xyxy':
-            self.box2box_transform = Box2BoxXYXYTransform(weights=cfg.MODEL.ROI_BOX_HEAD.BBOX_REG_WEIGHTS)
+            self.box2box_transform = Box2BoxXYXYTransform(weights=cfg.MODEL.ROI_BOX_HEAD.BBOX_REG_WEIGHTS_XYXY)
         else:
             self.box2box_transform = Box2BoxTransform(weights=cfg.MODEL.ROI_BOX_HEAD.BBOX_REG_WEIGHTS)
 
