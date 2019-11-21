@@ -205,6 +205,35 @@ class Box2BoxXYXYTransform(object):
         return pred_boxes
 
 
+    def apply_deltas_variance(self, deltas, boxes):
+
+        assert torch.isfinite(deltas).all().item(), "Box regression deltas become infinite or NaN!"
+        boxes = boxes.to(deltas.dtype)
+
+        widths = boxes[:, 2] - boxes[:, 0]
+        heights = boxes[:, 3] - boxes[:, 1]
+
+        wx1, wy1, wx2, wy2 = self.weights
+
+        ## deltas
+        dx1 = deltas[:, 0::4] / wx1**2
+        dy1 = deltas[:, 1::4] / wy1**2
+        dx2 = deltas[:, 2::4] / wx2**2
+        dy2 = deltas[:, 3::4] / wy2**2
+
+        # x1_box = boxes[:, 0]
+        # y1_box = boxes[:, 1]
+        # x2_box = boxes[:, 2]
+        # y2_box = boxes[:, 3]
+
+        pred_boxes_var = torch.zeros_like(deltas)
+        pred_boxes_var[:, 0::4] = dx1 * (widths[:, None]**2)
+        pred_boxes_var[:, 1::4] = dy1 * (heights[:, None]**2)
+        pred_boxes_var[:, 2::4] = dx2 * (widths[:, None]**2)
+        pred_boxes_var[:, 3::4] = dy2 * (heights[:, None]**2)
+        return pred_boxes_var
+
+
 class Box2BoxTransformRotated(object):
     """
     The box-to-box transform defined in Rotated R-CNN. The transformation is parameterized
