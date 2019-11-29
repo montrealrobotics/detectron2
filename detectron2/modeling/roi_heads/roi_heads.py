@@ -150,7 +150,8 @@ class ROIHeads(torch.nn.Module):
         )
 
         # Box2BoxTransform for bounding box regression
-        if cfg.CUSTOM_OPTIONS.ENCODING_TYPE is 'xyxy':
+        # import pdb; pdb.set_trace()
+        if cfg.CUSTOM_OPTIONS.ENCODING_TYPE == 'xyxy':
             self.box2box_transform = Box2BoxXYXYTransform(weights=cfg.MODEL.ROI_BOX_HEAD.BBOX_REG_WEIGHTS_XYXY)
         else:
             self.box2box_transform = Box2BoxTransform(weights=cfg.MODEL.ROI_BOX_HEAD.BBOX_REG_WEIGHTS)
@@ -468,6 +469,7 @@ class StandardROIHeads(ROIHeads):
         self._init_box_head(cfg)
         self._init_mask_head(cfg)
         self._init_keypoint_head(cfg)
+        # import pdb; pdb.set_trace()
         self.cfg = cfg
 
     def _init_box_head(self, cfg):
@@ -559,7 +561,7 @@ class StandardROIHeads(ROIHeads):
         del targets
 
         features_list = [features[f] for f in self.in_features]
-
+        # import pdb; pdb.set_trace()
         if self.training:
             losses = self._forward_box(features_list, proposals)
             # During training the proposals used by the box head are
@@ -568,7 +570,9 @@ class StandardROIHeads(ROIHeads):
             losses.update(self._forward_keypoint(features_list, proposals))
             return proposals, losses
         else:
+
             pred_instances = self._forward_box(features_list, proposals)
+            # import pdb; pdb.set_trace()
             # During inference cascaded prediction is used: the mask and keypoints heads are only
             # applied to the top scoring box detections.
             pred_instances = self.forward_with_given_boxes(features, pred_instances)
@@ -618,6 +622,7 @@ class StandardROIHeads(ROIHeads):
         box_features = self.box_pooler(features, [x.proposal_boxes for x in proposals])
         box_features = self.box_head(box_features)
         pred_class_logits, pred_proposal_deltas, pred_proposal_uncertain = self.box_predictor(box_features)
+
         del box_features
 
         outputs = FastRCNNOutputs(

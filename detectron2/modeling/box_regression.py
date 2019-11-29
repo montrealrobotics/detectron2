@@ -227,10 +227,12 @@ class Box2BoxXYXYTransform(object):
         # y2_box = boxes[:, 3]
 
         pred_boxes_var = torch.zeros_like(deltas)
-        pred_boxes_var[:, 0::4] = dx1 * (widths[:, None]**2)
-        pred_boxes_var[:, 1::4] = dy1 * (heights[:, None]**2)
-        pred_boxes_var[:, 2::4] = dx2 * (widths[:, None]**2)
-        pred_boxes_var[:, 3::4] = dy2 * (heights[:, None]**2)
+
+        ## What we are returning is standard deviation, which is square root of variance. 
+        pred_boxes_var[:, 0::4] = (dx1 * (widths[:, None]**2))**0.5
+        pred_boxes_var[:, 1::4] = (dy1 * (heights[:, None]**2))**0.5
+        pred_boxes_var[:, 2::4] = (dx2 * (widths[:, None]**2))**0.5
+        pred_boxes_var[:, 3::4] = (dy2 * (heights[:, None]**2))**0.5
         return pred_boxes_var
 
 

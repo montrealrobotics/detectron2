@@ -332,6 +332,7 @@ class Visualizer:
         """
         boxes = predictions.pred_boxes if predictions.has("pred_boxes") else None
         scores = predictions.scores if predictions.has("scores") else None
+        sigma = predictions.pred_sigma if predictions.has("pred_sigma") else None
         classes = predictions.pred_classes if predictions.has("pred_classes") else None
         labels = _create_text_labels(classes, scores, self.metadata.get("thing_classes", None))
         keypoints = predictions.pred_keypoints if predictions.has("pred_keypoints") else None
@@ -362,11 +363,13 @@ class Visualizer:
             masks=masks,
             boxes=boxes,
             labels=labels,
+            sigma = sigma,
             keypoints=keypoints,
             assigned_colors=colors,
             alpha=alpha,
         )
         return self.output
+
 
     def draw_sem_seg(self, sem_seg, area_threshold=None, alpha=0.8):
         """
@@ -500,6 +503,7 @@ class Visualizer:
         *,
         boxes=None,
         labels=None,
+        sigma=None,
         masks=None,
         keypoints=None,
         assigned_colors=None,
@@ -537,6 +541,9 @@ class Visualizer:
         if boxes is not None:
             boxes = self._convert_boxes(boxes)
             num_instances = len(boxes)
+
+        if sigma is not None:
+            sigma = sigma.cpu().numpy()
         if masks is not None:
             masks = self._convert_masks(masks)
             if num_instances:
@@ -575,11 +582,16 @@ class Visualizer:
             masks = [masks[idx] for idx in sorted_idxs] if masks is not None else None
             assigned_colors = [assigned_colors[idx] for idx in sorted_idxs]
             keypoints = keypoints[sorted_idxs] if keypoints is not None else None
+            sigma = sigma[sorted_idxs] if sigma is not None else None
 
         for i in range(num_instances):
             color = assigned_colors[i]
             if boxes is not None:
                 self.draw_box(boxes[i], edge_color=color)
+                if sigma is not None:
+                    # import pdb; pdb.set_trace()
+                    self.draw_ellipse(boxes[i,:2], 4*sigma[i,0], 4*sigma[i,1], color = color)
+                    self.draw_ellipse(boxes[i,2:4], 4*sigma[i,2], 4*sigma[i,3], color = color)
 
             if masks is not None:
                 for segment in masks[i].polygons:
@@ -779,6 +791,11 @@ class Visualizer:
             zorder=10,
             rotation=rotation,
         )
+        return self.output
+
+    def draw_ellipse(self, xy, width, height, color=[1.0, 0, 0]):
+        # import pdb; pdb.set_trace()
+        self.output.ax.add_patch(mpl.patches.Ellipse(tuple(xy), width, height, fill = False,  color = color))
         return self.output
 
     def draw_box(self, box_coord, alpha=0.5, edge_color="g", line_style="-"):

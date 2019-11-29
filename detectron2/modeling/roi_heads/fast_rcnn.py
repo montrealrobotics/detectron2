@@ -6,6 +6,7 @@ from fvcore.nn import smooth_l1_loss
 from torch import nn
 from torch.nn import functional as F
 
+from copy import deepcopy
 from detectron2.layers import batched_nms, cat
 from detectron2.structures import Boxes, Instances
 from detectron2.utils.events import get_event_storage
@@ -38,7 +39,7 @@ Naming convention:
 """
 
 
-def fast_rcnn_inference_uncert(boxes, scores, image_shapes, score_thresh, nms_thresh, topk_per_image):
+def fast_rcnn_inference(boxes, scores, sigma, image_shapes, score_thresh, nms_thresh, topk_per_image):
     """
     Call `fast_rcnn_inference_single_image` for all images.
 
@@ -64,97 +65,24 @@ def fast_rcnn_inference_uncert(boxes, scores, image_shapes, score_thresh, nms_th
         kept_indices: (list[Tensor]): A list of 1D tensor of length of N, each element indicates
             the corresponding boxes/scores index in [0, Ri) from the input, for image i.
     """
+
+    
+    ## if we have deterministic object detector, sigma would be none. In that case, to let the computation
+    ## happen without any issue, we just create copy of boxes. 
+    if sigma is None: 
+        sigma = deepcopy(boxes)
+
     result_per_image = [
         fast_rcnn_inference_single_image(
-            boxes_per_image, scores_per_image, image_shape, score_thresh, nms_thresh, topk_per_image
+            boxes_per_image, scores_per_image, sigma_per_image,image_shape, score_thresh, nms_thresh, topk_per_image
         )
-        for scores_per_image, boxes_per_image, image_shape in zip(scores, boxes, image_shapes)
-    ]
-    return tuple(list(x) for x in zip(*result_per_image))
-
-
-def fast_rcnn_inference_single_image_uncert(
-    boxes, scores, image_shape, score_thresh, nms_thresh, topk_per_image
-):
-    """
-    Single-image inference. Return bounding-box detection results by thresholding
-    on scores and applying non-maximum suppression (NMS).
-
-    Args:
-        Same as `fast_rcnn_inference`, but with boxes, scores, and image shapes
-        per image.
-
-    Returns:
-        Same as `fast_rcnn_inference`, but for only one image.
-    """
-    scores = scores[:, :-1]
-    num_bbox_reg_classes = boxes.shape[1] // 4
-    # Convert to Boxes to use the `clip` function ...
-    boxes = Boxes(boxes.reshape(-1, 4))
-    boxes.clip(image_shape)
-    boxes = boxes.tensor.view(-1, num_bbox_reg_classes, 4)  # R x C x 4
-
-    # Filter results based on detection scores
-    filter_mask = scores > score_thresh  # R x K
-    # R' x 2. First column contains indices of the R predictions;
-    # Second column contains indices of classes.
-    filter_inds = filter_mask.nonzero()
-    if num_bbox_reg_classes == 1:
-        boxes = boxes[filter_inds[:, 0], 0]
-    else:
-        boxes = boxes[filter_mask]
-    scores = scores[filter_mask]
-
-    # Apply per-class NMS
-    keep = batched_nms(boxes, scores, filter_inds[:, 1], nms_thresh)
-    if topk_per_image >= 0:
-        keep = keep[:topk_per_image]
-    boxes, scores, filter_inds = boxes[keep], scores[keep], filter_inds[keep]
-
-    result = Instances(image_shape)
-    result.pred_boxes = Boxes(boxes)
-    result.scores = scores
-    result.pred_classes = filter_inds[:, 1]
-    return result, filter_inds[:, 0]
-
-
-def fast_rcnn_inference(boxes, scores, image_shapes, score_thresh, nms_thresh, topk_per_image):
-    """
-    Call `fast_rcnn_inference_single_image` for all images.
-
-    Args:
-        boxes (list[Tensor]): A list of Tensors of predicted class-specific or class-agnostic
-            boxes for each image. Element i has shape (Ri, K * 4) if doing
-            class-specific regression, or (Ri, 4) if doing class-agnostic
-            regression, where Ri is the number of predicted objects for image i.
-            This is compatible with the output of :meth:`FastRCNNOutputs.predict_boxes`.
-        scores (list[Tensor]): A list of Tensors of predicted class scores for each image.
-            Element i has shape (Ri, K + 1), where Ri is the number of predicted objects
-            for image i. Compatible with the output of :meth:`FastRCNNOutputs.predict_probs`.
-        image_shapes (list[tuple]): A list of (width, height) tuples for each image in the batch.
-        score_thresh (float): Only return detections with a confidence score exceeding this
-            threshold.
-        nms_thresh (float):  The threshold to use for box non-maximum suppression. Value in [0, 1].
-        topk_per_image (int): The number of top scoring detections to return. Set < 0 to return
-            all detections.
-
-    Returns:
-        instances: (list[Instances]): A list of N instances, one for each image in the batch,
-            that stores the topk most confidence detections.
-        kept_indices: (list[Tensor]): A list of 1D tensor of length of N, each element indicates
-            the corresponding boxes/scores index in [0, Ri) from the input, for image i.
-    """
-    result_per_image = [
-        fast_rcnn_inference_single_image(
-            boxes_per_image, scores_per_image, image_shape, score_thresh, nms_thresh, topk_per_image
-        )
-        for scores_per_image, boxes_per_image, image_shape in zip(scores, boxes, image_shapes)
+        for scores_per_image, boxes_per_image, sigma_per_image,image_shape in zip(scores, boxes, sigma, image_shapes)
     ]
     return tuple(list(x) for x in zip(*result_per_image))
 
 
 def fast_rcnn_inference_single_image(
-    boxes, scores, image_shape, score_thresh, nms_thresh, topk_per_image
+    boxes, scores, sigma, image_shape, score_thresh, nms_thresh, topk_per_image
 ):
     """
     Single-image inference. Return bounding-box detection results by thresholding
@@ -173,6 +101,7 @@ def fast_rcnn_inference_single_image(
     boxes = Boxes(boxes.reshape(-1, 4))
     boxes.clip(image_shape)
     boxes = boxes.tensor.view(-1, num_bbox_reg_classes, 4)  # R x C x 4
+    sigma = sigma.view(-1, num_bbox_reg_classes, 4)  # R x C x 4
 
     # Filter results based on detection scores
     filter_mask = scores > score_thresh  # R x K
@@ -181,21 +110,104 @@ def fast_rcnn_inference_single_image(
     filter_inds = filter_mask.nonzero()
     if num_bbox_reg_classes == 1:
         boxes = boxes[filter_inds[:, 0], 0]
+        sigma = sigma[filter_inds[:, 0], 0]
     else:
         boxes = boxes[filter_mask]
+        sigma = sigma[filter_mask]
     scores = scores[filter_mask]
 
     # Apply per-class NMS
     keep = batched_nms(boxes, scores, filter_inds[:, 1], nms_thresh)
     if topk_per_image >= 0:
         keep = keep[:topk_per_image]
-    boxes, scores, filter_inds = boxes[keep], scores[keep], filter_inds[keep]
+    boxes, scores, sigma, filter_inds = boxes[keep], scores[keep], sigma[keep],filter_inds[keep]
 
     result = Instances(image_shape)
     result.pred_boxes = Boxes(boxes)
     result.scores = scores
+    result.pred_sigma = sigma
     result.pred_classes = filter_inds[:, 1]
     return result, filter_inds[:, 0]
+
+
+# def fast_rcnn_inference(boxes, scores, image_shapes, score_thresh, nms_thresh, topk_per_image):
+#     """
+#     Call `fast_rcnn_inference_single_image` for all images.
+
+#     Args:
+#         boxes (list[Tensor]): A list of Tensors of predicted class-specific or class-agnostic
+#             boxes for each image. Element i has shape (Ri, K * 4) if doing
+#             class-specific regression, or (Ri, 4) if doing class-agnostic
+#             regression, where Ri is the number of predicted objects for image i.
+#             This is compatible with the output of :meth:`FastRCNNOutputs.predict_boxes`.
+#         scores (list[Tensor]): A list of Tensors of predicted class scores for each image.
+#             Element i has shape (Ri, K + 1), where Ri is the number of predicted objects
+#             for image i. Compatible with the output of :meth:`FastRCNNOutputs.predict_probs`.
+#         image_shapes (list[tuple]): A list of (width, height) tuples for each image in the batch.
+#         score_thresh (float): Only return detections with a confidence score exceeding this
+#             threshold.
+#         nms_thresh (float):  The threshold to use for box non-maximum suppression. Value in [0, 1].
+#         topk_per_image (int): The number of top scoring detections to return. Set < 0 to return
+#             all detections.
+
+#     Returns:
+#         instances: (list[Instances]): A list of N instances, one for each image in the batch,
+#             that stores the topk most confidence detections.
+#         kept_indices: (list[Tensor]): A list of 1D tensor of length of N, each element indicates
+#             the corresponding boxes/scores index in [0, Ri) from the input, for image i.
+#     """
+#     result_per_image = [
+#         fast_rcnn_inference_single_image(
+#             boxes_per_image, scores_per_image, image_shape, score_thresh, nms_thresh, topk_per_image
+#         )
+#         for scores_per_image, boxes_per_image, image_shape in zip(scores, boxes, image_shapes)
+#     ]
+#     return tuple(list(x) for x in zip(*result_per_image))
+
+
+# def fast_rcnn_inference_single_image(
+#     boxes, scores, image_shape, score_thresh, nms_thresh, topk_per_image
+# ):
+#     """
+#     Single-image inference. Return bounding-box detection results by thresholding
+#     on scores and applying non-maximum suppression (NMS).
+
+#     Args:
+#         Same as `fast_rcnn_inference`, but with boxes, scores, and image shapes
+#         per image.
+
+#     Returns:
+#         Same as `fast_rcnn_inference`, but for only one image.
+#     """
+#     scores = scores[:, :-1]
+#     num_bbox_reg_classes = boxes.shape[1] // 4
+#     # Convert to Boxes to use the `clip` function ...
+#     boxes = Boxes(boxes.reshape(-1, 4))
+#     boxes.clip(image_shape)
+#     boxes = boxes.tensor.view(-1, num_bbox_reg_classes, 4)  # R x C x 4
+
+#     # Filter results based on detection scores
+#     filter_mask = scores > score_thresh  # R x K
+#     # R' x 2. First column contains indices of the R predictions;
+#     # Second column contains indices of classes.
+#     filter_inds = filter_mask.nonzero()
+#     if num_bbox_reg_classes == 1:
+#         boxes = boxes[filter_inds[:, 0], 0]
+#     else:
+#         boxes = boxes[filter_mask]
+#     scores = scores[filter_mask]
+
+#     # Apply per-class NMS
+#     keep = batched_nms(boxes, scores, filter_inds[:, 1], nms_thresh)
+#     if topk_per_image >= 0:
+#         keep = keep[:topk_per_image]
+#     boxes, scores, filter_inds = boxes[keep], scores[keep], filter_inds[keep]
+
+#     result = Instances(image_shape)
+#     result.pred_boxes = Boxes(boxes)
+#     result.scores = scores
+#     result.pred_classes = filter_inds[:, 1]
+#     return result, filter_inds[:, 0]
 
 
 class FastRCNNOutputs(object):
@@ -280,6 +292,50 @@ class FastRCNNOutputs(object):
         """
         self._log_accuracy()
         return F.cross_entropy(self.pred_class_logits, self.gt_classes, reduction="mean")
+
+    def loss_calibration(self):
+        """
+        Loss calibration implementation
+
+        Returns:
+            scalar Tensor
+        """
+        gt_proposal_deltas = self.box2box_transform.get_deltas(
+            self.proposals.tensor, self.gt_boxes.tensor
+        )
+        box_dim = gt_proposal_deltas.size(1)  # 4 or 5
+        cls_agnostic_bbox_reg = self.pred_proposal_deltas.size(1) == box_dim
+        device = self.pred_proposal_deltas.device
+
+        bg_class_ind = self.pred_class_logits.shape[1] - 1
+
+        # Box delta loss is only computed between the prediction for the gt class k
+        # (if 0 <= k < bg_class_ind) and the target; there is no loss defined on predictions
+        # for non-gt classes and background.
+        # Empty fg_inds produces a valid loss of zero as long as the size_average
+        # arg to smooth_l1_loss is False (otherwise it uses torch.mean internally
+        # and would produce a nan loss).
+        fg_inds = torch.nonzero((self.gt_classes >= 0) & (self.gt_classes < bg_class_ind)).squeeze(
+            1
+        )
+        if cls_agnostic_bbox_reg:
+            # pred_proposal_deltas only corresponds to foreground class for agnostic
+            gt_class_cols = torch.arange(box_dim, device=device)
+        else:
+            fg_gt_classes = self.gt_classes[fg_inds]
+            # pred_proposal_deltas for class k are located in columns [b * k : b * k + b],
+            # where b is the dimension of box representation (4 or 5)
+            # Note that compared to Detectron1,
+            # we do not perform bounding box regression for background classes.
+            gt_class_cols = box_dim * fg_gt_classes[:, None] + torch.arange(box_dim, device=device)
+
+        ### 
+
+        ## Computing the loss attenuation
+        error_loss = (self.pred_proposal_uncertain[fg_inds[:, None], gt_class_cols] - (self.pred_proposal_deltas[fg_inds[:, None], gt_class_cols] - gt_proposal_deltas[fg_inds])**2).sum()
+        loss_cal_final = (((self.pred_proposal_deltas[fg_inds[:, None], gt_class_cols] - gt_proposal_deltas[fg_inds])**2/(self.pred_proposal_uncertain[fg_inds[:, None], gt_class_cols]) + torch.log(self.pred_proposal_uncertain[fg_inds[:, None], gt_class_cols])).sum() + error_loss)/self.gt_classes.numel() 
+
+        return loss_cal_final
 
     def loss_attenuation(self):
         """
@@ -392,17 +448,15 @@ class FastRCNNOutputs(object):
             A dict of losses (scalar tensors) containing keys "loss_cls" and "loss_attenuation_final".
         """
 
-        if self.loss_type is 'smooth_l1':
+        if self.loss_type == 'smooth_l1':
             loss_name = 'smooth_l1_loss'
             loss_reg = self.smooth_l1_loss()
-        elif self.loss_type is 'loss_att':
+        elif self.loss_type == 'loss_att':
             loss_name = 'loss_attenuation'
             loss_reg = self.loss_attenuation()
-        elif self.loss_type is 'loss_cal':
+        elif self.loss_type == 'loss_cal':
             loss_name = 'loss_calibration'
-            '''
-                To be implemented
-            '''
+            loss_reg = self.loss_calibration()
 
             # loss_reg = self.loss_attenuation()
 
@@ -469,13 +523,15 @@ class FastRCNNOutputs(object):
             list[Tensor]: same as fast_rcnn_inference.
         """
         boxes = self.predict_boxes()
-        if self.cfg.CUSTOM_OPTIONS.DETECTOR_TYPE is 'probabilistic':
-            boxes_var = self.predict_variance()
+        if self.loss_type is not 'smooth_l1':
+            sigma = self.predict_variance()
+        else: 
+            sigma = None
         scores = self.predict_probs()
         image_shapes = self.image_shapes
 
         return fast_rcnn_inference(
-            boxes, scores, image_shapes, score_thresh, nms_thresh, topk_per_image
+            boxes, scores, sigma, image_shapes, score_thresh, nms_thresh, topk_per_image
         )
 
 
@@ -513,7 +569,7 @@ class FastRCNNOutputLayers(nn.Module):
         for l in [self.cls_score, self.bbox_pred]:
             nn.init.constant_(l.bias, 0)
         if cfg is not None: 
-            if cfg.CUSTOM_OPTIONS.DETECTOR_TYPE is 'probabilistic': 
+            if cfg.CUSTOM_OPTIONS.DETECTOR_TYPE == 'probabilistic': 
                 #### Adding uncertainty prediction(not the best way but a good start) ####
                 self.bbox_uncertainty_pred = nn.Linear(input_size, num_bbox_reg_classes * box_dim)
                 nn.init.normal_(self.bbox_uncertainty_pred.weight, std=0.001)
@@ -543,10 +599,12 @@ class FastRCNNOutputLayers(nn.Module):
 
         ## Because uncertainty is always +ve
         # proposal_delta_uncertainty = self.RichardCurve(self.bbox_uncertainty_pred(x), low=0, high=10)
+
         if self.cfg is not None:
-            if self.cfg.CUSTOM_OPTIONS.DETECTOR_TYPE is 'probabilistic': 
+            if self.cfg.CUSTOM_OPTIONS.DETECTOR_TYPE == 'probabilistic': 
                 # proposal_delta_uncertainty = self.RichardCurve(self.bbox_uncertainty_pred(x), low=1e-3, high=10, sharp=0.15) ## This was used for the model that works
                 proposal_delta_uncertainty = self.RichardCurve(self.bbox_uncertainty_pred(x), low=self.cfg.CUSTOM_OPTIONS.RICHARD_CURVE_LOW, high=self.cfg.CUSTOM_OPTIONS.RICHARD_CURVE_HIGH, sharp=self.cfg.CUSTOM_OPTIONS.RICHARD_CURVE_SHARP) ## This was used for the model that works
+                
                 return scores, proposal_deltas, proposal_delta_uncertainty
             else:
                 return scores, proposal_deltas, None

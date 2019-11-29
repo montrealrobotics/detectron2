@@ -36,7 +36,7 @@ def get_kitti_dicts(root_dir, data_label):
     if data_label == 'test':
         image_names = glob.glob(root_dir+"/images/testing/*.png")
     # print(image_names)
-    # image_names = image_names[0:10]
+    image_names = image_names[0:10]
     
     record = {}
     dataset_dicts = []
@@ -130,11 +130,12 @@ from detectron2.engine import DefaultTrainer
 from detectron2.config import get_cfg
 
 cfg = get_cfg()
-cfg.merge_from_file("/network/home/bhattdha/detectron2/configs/COCO-Detection/faster_rcnn_R_101_FPN_3x.yaml")
+# cfg.merge_from_file("/network/home/bhattdha/detectron2/configs/COCO-Detection/faster_rcnn_R_101_FPN_3x.yaml")
+cfg.merge_from_file("/network/home/bhattdha/detectron2/configs/COCO-Detection/faster_rcnn_R_50_FPN_3x.yaml")
 cfg.DATASETS.TRAIN = ("kitti/train",)
 cfg.DATASETS.TEST = ()   # no metrics implemented for this dataset
 cfg.DATALOADER.NUM_WORKERS = 2
-cfg.MODEL.WEIGHTS = "detectron2://COCO-Detection/faster_rcnn_R_101_FPN_3x/137851257/model_final_f6e8b1.pkl"  # initialize from model zoo
+cfg.MODEL.WEIGHTS = "detectron2/COCO-Detection/faster_rcnn_R_50_FPN_3x/137849458/model_final_280758.pkl"  # initialize from model zoo
 # cfg.MODEL.WEIGHTS = "/network/tmp1/bhattdha/detectron2_kitti/model_0014999.pth"  # initialize fron deterministic model
 cfg.SOLVER.IMS_PER_BATCH = 12
 # cfg.SOLVER.BASE_LR = 0.015
