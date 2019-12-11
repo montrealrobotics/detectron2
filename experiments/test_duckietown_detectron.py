@@ -86,14 +86,16 @@ for d in ["train", "test"]:
 
 duckietown_metadata = MetadataCatalog.get('duckietown/train')
 
-# cfg_load = torch.load('/network/tmp1/bhattdha/duckietown_dataset/duckietown_train_1/duckietown_train_1_cfg.final')
+cfg_load = torch.load('/network/tmp1/bhattdha/duckietown_dataset/probabilistic_duckietown_OD/probabilistic_duckietown_OD_cfg.final')
 
 ##loading the config used at train time
-# cfg = cfg_load['cfg']
+cfg = cfg_load['cfg']
+# import pdb; pdb.set_trace()
 # cfg.DATASETS.TEST = ()   # no metrics implemented for this dataset
+cfg.DATASETS.TEST = ('coco_2017_val',)   # no metrics implemented for this dataset
 cfg.MODEL.ROI_HEADS.BATCH_SIZE_PER_IMAGE = 128   # faster, and good enough for this toy dataset
 cfg.MODEL.ROI_HEADS.NUM_CLASSES = len(class_list)  #  (kitti)
-cfg.OUTPUT_DIR = '/network/tmp1/bhattdha/duckietown_dataset/duckietown_train_1/'
+cfg.OUTPUT_DIR = '/network/tmp1/bhattdha/duckietown_dataset/probabilistic_duckietown_OD/'
 # cfg.MODEL.ROI_HEADS.NUM_CLASSES = len(class_list)  #  (kitti)
 
 """Now, we perform inference with the trained model on the kitti dataset. First, let's create a predictor using the model we just trained:"""
@@ -123,8 +125,42 @@ from detectron2.utils.visualizer import ColorMode
 # import pdb; pdb.set_trace()
 
 
+# import time
+# inf_time = []
+# # If the input is the camera, pass 0 instead of the video file name
+# cap = cv2.VideoCapture('/network/home/bhattdha/manfred_vid.mov')
+# frame_width = int(cap.get(3))
+# frame_height = int(cap.get(4))
+# out = cv2.VideoWriter('/network/home/bhattdha/output_prob.avi',cv2.VideoWriter_fourcc('M','J','P','G'), 20, (frame_width,frame_height))
+# while(cap.isOpened()):
+
+    
+#     ret, frame = cap.read()
+#     st_time = time.time()
+#     outputs = predictor(frame)
+#     end_time = time.time() - st_time
+#     inf_time.append(time.time() - st_time)
+#     # pdb.set_trace()
+#     v = Visualizer(frame[:, :, ::-1],
+#                    metadata=duckietown_metadata, 
+#                    scale=1.0, 
+#                    instance_mode=ColorMode.IMAGE   
+#     )
+#     # out.write(frame)
+#     v = v.draw_instance_predictions(outputs["instances"].to("cpu"))
+#     print("Tot time is: ", end_time)
+#     # print(type(v))
+#     # import ipdb; ipdb.set_trace()
+#     out.write(v.get_image()[:, :, ::-1])
+
+# # When everything done, release the video capture and video write objects
+# cap.release()
+# out.release()
+# print("Inference time: ", np.mean(np.array(inf_time)))
+
 # dataset_dicts = get_kitti_dicts("/network/tmp1/bhattdha/kitti_dataset", 'test')
 image_names = glob.glob("/network/tmp1/bhattdha/duckietown_dataset/final_frames/test/*.png")
+
 for idx, im_name in enumerate(image_names):   
     print(idx, im_name)
     im = cv2.imread(im_name)
@@ -139,6 +175,6 @@ for idx, im_name in enumerate(image_names):
     v = v.draw_instance_predictions(outputs["instances"].to("cpu"))
     print("saving images")
     print(type(v))
-    cv2.imwrite("/network/tmp1/bhattdha/duckietown_dataset/final_frames/test_outputs/" + str(idx).zfill(5) + '.png', v.get_image()[:, :, ::-1]) 
+    cv2.imwrite("/network/tmp1/bhattdha/duckietown_dataset/probabilistic_duckietown_OD/test_outputs/" + str(idx).zfill(5) + '.png', v.get_image()[:, :, ::-1]) 
     # cv2_imshow(v.get_image()[:, :, ::-1])
     

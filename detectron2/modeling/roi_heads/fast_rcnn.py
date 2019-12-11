@@ -69,8 +69,10 @@ def fast_rcnn_inference(boxes, scores, sigma, image_shapes, score_thresh, nms_th
     
     ## if we have deterministic object detector, sigma would be none. In that case, to let the computation
     ## happen without any issue, we just create copy of boxes. 
-    if sigma is None: 
+    # import pdb; pdb.set_trace()
+    if sigma == None:  ## None when deterministic object detection, so let's make sigma 0
         sigma = deepcopy(boxes)
+        sigma[0][:,:] = 0.0
 
     result_per_image = [
         fast_rcnn_inference_single_image(
@@ -523,7 +525,7 @@ class FastRCNNOutputs(object):
             list[Tensor]: same as fast_rcnn_inference.
         """
         boxes = self.predict_boxes()
-        if self.loss_type is not 'smooth_l1':
+        if self.loss_type != 'smooth_l1':
             sigma = self.predict_variance()
         else: 
             sigma = None

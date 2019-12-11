@@ -98,11 +98,11 @@ from detectron2.engine import DefaultTrainer
 from detectron2.config import get_cfg
 
 cfg = get_cfg()
-cfg.merge_from_file("/network/home/bhattdha/detectron2/configs/COCO-Detection/faster_rcnn_R_101_FPN_3x.yaml")
+cfg.merge_from_file("/network/home/bhattdha/detectron2/configs/COCO-Detection/faster_rcnn_R_50_FPN_3x.yaml")
 
 
 # loading config used during train time
-cfg_dict = torch.load('/network/tmp1/bhattdha/detectron2_kitti/train_xyxy_loss_att/train_xyxy_loss_att_cfg.final')
+cfg_dict = torch.load('/network/tmp1/bhattdha/detectron2_kitti/loss_att_R-50-FPN/loss_att_R-50-FPN_cfg.final')
 cfg = cfg_dict['cfg']
 
 # cfg.DATASETS.TRAIN = ("kitti/train",)
@@ -117,11 +117,11 @@ cfg.MODEL.ROI_HEADS.NUM_CLASSES = len(class_list)  #  (kitti)
 
 
 # import pdb; pdb.set_trace()
-cfg.OUTPUT_DIR = '/network/tmp1/bhattdha/detectron2_kitti/train_xyxy_loss_att/'
+cfg.OUTPUT_DIR = '/network/tmp1/bhattdha/detectron2_kitti/loss_att_R-50-FPN/'
 # import pdb; pdb.set_trace()
 
 """Now, we perform inference with the trained model on the kitti dataset. First, let's create a predictor using the model we just trained:"""
-cfg.MODEL.WEIGHTS = os.path.join(cfg.OUTPUT_DIR, "model_0029999.pth")
+cfg.MODEL.WEIGHTS = os.path.join(cfg.OUTPUT_DIR, "model_0039999.pth")
 cfg.MODEL.ROI_HEADS.SCORE_THRESH_TEST = 0.7   # set the testing threshold for this model
 # cfg.DATASETS.TEST = ("kitti/test", )
 predictor = DefaultPredictor(cfg)
@@ -131,12 +131,18 @@ predictor = DefaultPredictor(cfg)
 
 
 from detectron2.utils.visualizer import ColorMode
+time_inference = []
 # dataset_dicts = get_kitti_dicts("/network/tmp1/bhattdha/kitti_dataset", 'test')
 image_names = glob.glob(root_dir+"/images/testing/*.png")
 for idx, im_name in enumerate(image_names):   
     print(idx, im_name)
     im = cv2.imread(im_name)
+    import time
+    st_time = time.time()
     outputs = predictor(im)
+    tot_time = time.time() - st_time
+    print("total time per image is:", tot_time)
+    time_inference.append(tot_time)
     # import pdb; pdb.set_trace()
     # pdb.set_trace()
     v = Visualizer(im[:, :, ::-1],
@@ -146,8 +152,9 @@ for idx, im_name in enumerate(image_names):
     )
 
     v = v.draw_instance_predictions(outputs["instances"].to("cpu"))
-    print("saving images")
-    print(type(v))
-    cv2.imwrite("/network/tmp1/bhattdha/detectron2_kitti/train_xyxy_loss_att/test_outputs/" + str(idx).zfill(5) + '.png', v.get_image()[:, :, ::-1]) 
+    # print("saving images")
+    # print(type(v))
+    cv2.imwrite("/network/tmp1/bhattdha/detectron2_kitti/loss_att_R-50-FPN/test_outputs/" + str(idx).zfill(6) + '.png', v.get_image()[:, :, ::-1]) 
     # cv2_imshow(v.get_image()[:, :, ::-1])
     
+print("Average time is:", np.mean(np.array(time_inference)))

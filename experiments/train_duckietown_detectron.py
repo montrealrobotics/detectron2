@@ -31,7 +31,7 @@ def get_duckietown_dicts(root_dir):
     
     
     annotation_file = root_dir + 'annotations/final_anns.json'
-    frame_path = root_dir + 'final_frames/frames/'
+    frame_path = root_dir + 'final_frames/train/'
 
     with open(annotation_file) as f: 
         data = json.load(f) 
@@ -49,6 +49,7 @@ def get_duckietown_dicts(root_dir):
         # print(name)
         image_name = frame_path + name
         record = {}
+        # import pdb; pdb.set_trace()
         height, width = cv2.imread(image_name).shape[:2]
 
         record["file_name"] = image_name
@@ -99,16 +100,17 @@ cfg.DATALOADER.NUM_WORKERS = 2
 cfg.MODEL.WEIGHTS = root_dir + 'model_final.pkl'  # initialize from model zoo
 # cfg.MODEL.WEIGHTS = "/network/tmp1/bhattdha/detectron2_kitti/model_0014999.pth"  # initialize fron deterministic model
 cfg.SOLVER.IMS_PER_BATCH = 12
-cfg.SOLVER.BASE_LR = 0.015
-# cfg.SOLVER.BASE_LR = 0.0003  
+# cfg.SOLVER.BASE_LR = 0.015
+cfg.SOLVER.BASE_LR = 0.0003  
 cfg.SOLVER.MAX_ITER =  15000  
 cfg.MODEL.ROI_HEADS.BATCH_SIZE_PER_IMAGE = 128   # faster, and good enough for this toy dataset
 cfg.MODEL.ROI_HEADS.NUM_CLASSES = len(class_list)  #  (kitti)
 cfg.OUTPUT_DIR = root_dir + dir_name
-cfg.CUSTOM_OPTIONS.DETECTOR_TYPE = 'deterministic'
-if cfg.CUSTOM_OPTIONS.DETECTOR_TYPE is 'deterministic':
-    ## has to be smooth l1 loss if detector is deterministc
-    cfg.CUSTOM_OPTIONS.LOSS_TYPE_REG = 'smooth_l1'
+# import pdb; pdb.set_trace()
+# cfg.CUSTOM_OPTIONS.DETECTOR_TYPE = 'deterministic'
+# if cfg.CUSTOM_OPTIONS.DETECTOR_TYPE == 'deterministic':
+#     ## has to be smooth l1 loss if detector is deterministc
+#     cfg.CUSTOM_OPTIONS.LOSS_TYPE_REG = 'smooth_l1'
 
 # import ipdb; ipdb.set_trace()
 os.makedirs(cfg.OUTPUT_DIR, exist_ok=True)
