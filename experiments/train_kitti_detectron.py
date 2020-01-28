@@ -36,7 +36,7 @@ def get_kitti_dicts(root_dir, data_label):
     if data_label == 'test':
         image_names = glob.glob(root_dir+"/images/testing/*.png")
     # print(image_names)
-    # image_names = image_names[0:50]
+    # image_names = image_names[0:10]
     
     record = {}
     dataset_dicts = []
@@ -137,10 +137,10 @@ cfg.DATASETS.TEST = ()   # no metrics implemented for this dataset
 cfg.DATALOADER.NUM_WORKERS = 2
 cfg.MODEL.WEIGHTS = ""  # initialize from model zoo
 # cfg.MODEL.WEIGHTS = "/network/tmp1/bhattdha/detectron2_kitti/model_0014999.pth"  # initialize fron deterministic model
-cfg.SOLVER.IMS_PER_BATCH = 12
+cfg.SOLVER.IMS_PER_BATCH = 3
 # cfg.SOLVER.BASE_LR = 0.015
-cfg.SOLVER.BASE_LR = 0.0003  
-cfg.SOLVER.MAX_ITER =  40000  
+cfg.SOLVER.BASE_LR = 1e-4  
+cfg.SOLVER.MAX_ITER =  100000  
 cfg.MODEL.ROI_HEADS.BATCH_SIZE_PER_IMAGE = 128   # faster, and good enough for this toy dataset
 cfg.MODEL.ROI_HEADS.NUM_CLASSES = len(class_list)  #  (kitti)
 cfg.OUTPUT_DIR = '/network/tmp1/bhattdha/detectron2_kitti/' + dir_name

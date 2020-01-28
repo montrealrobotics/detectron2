@@ -1,9 +1,15 @@
 _BASE_: "../Base-RCNN-FPN.yaml"
 MODEL:
   WEIGHTS: ""
-  MASK_ON: False
   RESNETS:
     DEPTH: 26
+    NORM: "GN"
+    STRIDE_IN_1X1: True
+  FPN:
+    NORM: "GN"
+  BACKBONE:
+    FREEZE_AT: 0
 SOLVER:
+  # 3x schedule
   STEPS: (210000, 250000)
   MAX_ITER: 270000
