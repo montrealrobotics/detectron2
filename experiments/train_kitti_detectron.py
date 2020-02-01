@@ -29,15 +29,17 @@ class_list = ['Car', 'Van', 'Truck', 'Tram']
 # write a function that loads the dataset into detectron2's standard format
 def get_kitti_dicts(root_dir, data_label):
     
-    
+    image_names = sorted(glob.glob(root_dir+"/images/training/*.png"))
+    train_images = int(len(image_names)*0.75)
+    test_images = len(image_names) - train_images
     if data_label == 'train':
-        image_names = glob.glob(root_dir+"/images/training/*.png")
+        image_names = image_names[:train_images]
         # image_names = image_names[0:10]
     if data_label == 'test':
-        image_names = glob.glob(root_dir+"/images/testing/*.png")
+        image_names = image_names[-test_images:]
     # print(image_names)
     # image_names = image_names[0:10]
-    
+    # import ipdb; ipdb.set_trace()
     record = {}
     dataset_dicts = []
 
@@ -130,17 +132,18 @@ from detectron2.engine import DefaultTrainer
 from detectron2.config import get_cfg
 
 cfg = get_cfg()
-# cfg.merge_from_file("/network/home/bhattdha/detectron2/configs/COCO-Detection/faster_rcnn_R_101_FPN_3x.yaml")
-cfg.merge_from_file("/network/home/bhattdha/detectron2/configs/COCO-Detection/faster_rcnn_R_152_FPN_3x.yaml")
+cfg.merge_from_file("/network/home/bhattdha/detectron2/configs/COCO-Detection/faster_rcnn_R_26_FPN_3x.yaml")
+# cfg.merge_from_file("/network/home/bhattdha/detectron2/configs/COCO-Detection/faster_rcnn_X_101_32x8d_FPN_deform_conv_3x.yaml")
 cfg.DATASETS.TRAIN = ("kitti/train",)
 cfg.DATASETS.TEST = ()   # no metrics implemented for this dataset
 cfg.DATALOADER.NUM_WORKERS = 2
-cfg.MODEL.WEIGHTS = ""  # initialize from model zoo
+# cfg.MODEL.WEIGHTS = "detectron2://COCO-Detection/faster_rcnn_R_50_FPN_3x/137849458/model_final_280758.pkl"  # initialize from model zoo
+cfg.MODEL.WEIGHTS = "/network/tmp1/bhattdha/detectron2_kitti/resnet-26_FPN_3x_scratch/model_start.pth"
 # cfg.MODEL.WEIGHTS = "/network/tmp1/bhattdha/detectron2_kitti/model_0014999.pth"  # initialize fron deterministic model
-cfg.SOLVER.IMS_PER_BATCH = 3
+cfg.SOLVER.IMS_PER_BATCH = 8
 # cfg.SOLVER.BASE_LR = 0.015
-cfg.SOLVER.BASE_LR = 1e-4  
-cfg.SOLVER.MAX_ITER =  100000  
+cfg.SOLVER.BASE_LR = 2e-4  
+cfg.SOLVER.MAX_ITER =  250000  
 cfg.MODEL.ROI_HEADS.BATCH_SIZE_PER_IMAGE = 128   # faster, and good enough for this toy dataset
 cfg.MODEL.ROI_HEADS.NUM_CLASSES = len(class_list)  #  (kitti)
 cfg.OUTPUT_DIR = '/network/tmp1/bhattdha/detectron2_kitti/' + dir_name
