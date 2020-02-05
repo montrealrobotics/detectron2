@@ -7,7 +7,7 @@ from contextlib import contextmanager
 import torch
 
 from detectron2.utils.comm import is_main_process
-
+from detectron2.modeling import detector_postprocess
 
 class DatasetEvaluator:
     """
@@ -156,7 +156,117 @@ def inference_on_dataset(model, data_loader, evaluator):
         results = {}
     return results
 
+def inference_on_dataset_mm(model1, model2, data_loader, evaluator):
+    """
+    Run model (in eval mode) on the data_loader and evaluate the metrics with evaluator.
+    Here, we can send multiple models and use different first and second stages. 
+    mm stands for multimodel evaluation
 
+    Args:
+        model1, model2 (nn.Module): a module which accepts an object from
+            `data_loader` and returns some outputs. It will be temporarily set to `eval` mode.
+        
+        model1: We will use region proposals from model1
+        model2: We will use feature-map of model2 and stage-2 of 
+                model2 with region proposals of model1 for 
+                final output
+
+            If you wish to evaluate a model in `training` mode instead, you can
+            wrap the given model and override its behavior of `.eval()` and `.train()`.
+        data_loader: an iterable object with a length.
+            The elements it generates will be the inputs to the model.
+        evaluator (DatasetEvaluator): the evaluator to run
+
+    Returns:
+        The return value of `evaluator.evaluate()`
+    """
+    num_devices = torch.distributed.get_world_size() if torch.distributed.is_initialized() else 1
+    logger = logging.getLogger(__name__)
+    print("Start inference on {} images".format(len(data_loader)))
+
+    total = len(data_loader)  # inference data loader must have a fixed length
+    evaluator.reset()
+
+    logging_interval = 50
+    num_warmup = min(5, logging_interval - 1, total - 1)
+    start_time = time.time()
+    total_compute_time = 0
+    with inference_context(model1), inference_context(model2), torch.no_grad():
+        for idx, inputs in enumerate(data_loader):
+            print("At index: ", idx)
+            if idx == num_warmup:
+                start_time = time.time()
+                total_compute_time = 0
+
+            start_compute_time = time.time()
+
+
+            ## This is where it is imp to have proper distinction
+            # outputs = model(inputs)
+            # import ipdb; ipdb.set_trace()
+
+            ## image preprocessing, same for both the models
+            images1 = model1.preprocess_image(inputs)
+            images2 = model2.preprocess_image(inputs)
+
+            ## let's get region proposals of model1
+            features1 = model1.backbone(images1.tensor)
+            proposals1, _ = model1.proposal_generator(images1, features1, None)
+
+            ## Now let's prepare model2 for stage-2 evaluation
+            features2 = model2.backbone(images2.tensor)
+            results2, _ = model2.roi_heads(images2, features2, proposals1, None)
+
+            ## Time to postprocess the results
+            processed_results = []
+            for results_per_image, input_per_image, image_size in zip(
+                results2, inputs, images1.image_sizes
+            ):
+                height = input_per_image.get("height", image_size[0])
+                width = input_per_image.get("width", image_size[1])
+                r = detector_postprocess(results_per_image, height, width)
+                processed_results.append({"instances": r})
+
+            outputs = processed_results
+
+            torch.cuda.synchronize()
+            total_compute_time += time.time() - start_compute_time
+            evaluator.process(inputs, outputs)
+
+            if (idx + 1) % logging_interval == 0:
+                duration = time.time() - start_time
+                seconds_per_img = duration / (idx + 1 - num_warmup)
+                eta = datetime.timedelta(
+                    seconds=int(seconds_per_img * (total - num_warmup) - duration)
+                )
+                print(
+                    "Inference done {}/{}. {:.4f} s / img. ETA={}".format(
+                        idx + 1, total, seconds_per_img, str(eta)
+                    )
+                )
+
+    # Measure the time only for this worker (before the synchronization barrier)
+    total_time = int(time.time() - start_time)
+    total_time_str = str(datetime.timedelta(seconds=total_time))
+    # NOTE this format is parsed by grep
+    print(
+        "Total inference time: {} ({:.6f} s / img per device, on {} devices)".format(
+            total_time_str, total_time / (total - num_warmup), num_devices
+        )
+    )
+    total_compute_time_str = str(datetime.timedelta(seconds=int(total_compute_time)))
+    print(
+        "Total inference pure compute time: {} ({:.6f} s / img per device, on {} devices)".format(
+            total_compute_time_str, total_compute_time / (total - num_warmup), num_devices
+        )
+    )
+
+    results = evaluator.evaluate()
+    # An evaluator may return None when not in main process.
+    # Replace it by an empty dict instead to make it easier for downstream code to handle
+    if results is None:
+        results = {}
+    return results
 @contextmanager
 def inference_context(model):
     """
