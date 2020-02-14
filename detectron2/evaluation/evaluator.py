@@ -198,7 +198,7 @@ def inference_on_dataset_mm(model1, model2, data_loader, evaluator):
                 start_time = time.time()
                 total_compute_time = 0
 
-            start_compute_time = time.time()
+            
 
 
             ## This is where it is imp to have proper distinction
@@ -215,7 +215,10 @@ def inference_on_dataset_mm(model1, model2, data_loader, evaluator):
 
             ## Now let's prepare model2 for stage-2 evaluation
             features2 = model2.backbone(images2.tensor)
+            start_compute_time = time.time()
             results2, _ = model2.roi_heads(images2, features2, proposals1, None)
+            torch.cuda.synchronize()
+            total_compute_time += time.time() - start_compute_time
 
             ## Time to postprocess the results
             processed_results = []
@@ -229,8 +232,6 @@ def inference_on_dataset_mm(model1, model2, data_loader, evaluator):
 
             outputs = processed_results
 
-            torch.cuda.synchronize()
-            total_compute_time += time.time() - start_compute_time
             evaluator.process(inputs, outputs)
 
             if (idx + 1) % logging_interval == 0:

@@ -531,7 +531,7 @@ class FastRCNNOutputs(object):
             sigma = None
         scores = self.predict_probs()
         image_shapes = self.image_shapes
-
+        # import ipdb; ipdb.set_trace()
         return fast_rcnn_inference(
             boxes, scores, sigma, image_shapes, score_thresh, nms_thresh, topk_per_image
         )
@@ -594,6 +594,7 @@ class FastRCNNOutputLayers(nn.Module):
         return low + ((high - low) / (1 + torch.exp(-sharp * x)))
 
     def forward(self, x):
+        
         if x.dim() > 2:
             x = torch.flatten(x, start_dim=1)
         scores = self.cls_score(x)

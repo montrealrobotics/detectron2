@@ -30,7 +30,7 @@ class_list = ['Car', 'Van', 'Truck', 'Tram']
 def get_kitti_dicts(root_dir, data_label):
     
     image_names = sorted(glob.glob(root_dir+"/images/training/*.png"))
-    train_images = int(len(image_names)*0.99)
+    train_images = int(len(image_names)*0.999)
     test_images = len(image_names) - train_images
     if data_label == 'train':
         image_names = image_names[:train_images]
@@ -122,6 +122,9 @@ cfg = get_cfg()
 cfg_dict = torch.load('/network/tmp1/bhattdha/detectron2_kitti/resnet-101_32x8d_FPN_deform_conv/resnet-101_32x8d_FPN_deform_conv_cfg.final')
 
 cfg = cfg_dict['cfg']
+cfg.MODEL.RPN.POST_NMS_TOPK_TEST = 1000
+# cfg.INPUT.MIN_SIZE_TEST = 400
+# cfg.INPUT.MAX_SIZE_TEST = 800
 
 cfg.DATASETS.TEST = ("kitti/test",)   # no metrics implemented for this dataset
 cfg.DATALOADER.NUM_WORKERS = 2
@@ -138,7 +141,7 @@ cfg.OUTPUT_DIR = '/network/tmp1/bhattdha/detectron2_kitti/resnet-101_32x8d_FPN_d
 # import pdb; pdb.set_trace()
 
 """Now, we perform inference with the trained model on the kitti dataset. First, let's create a predictor using the model we just trained:"""
-cfg.MODEL.WEIGHTS = os.path.join(cfg.OUTPUT_DIR, "model_0031999.pth")
+cfg.MODEL.WEIGHTS = os.path.join(cfg.OUTPUT_DIR, "model_0035999.pth")
 cfg.MODEL.ROI_HEADS.SCORE_THRESH_TEST = 0.7   # set the testing threshold for this model
 # cfg.OUTPUT_DIR = '/network/tmp1/bhattdha/detectron2_kitti/' + dir_name
 
@@ -150,13 +153,16 @@ predictor = DefaultPredictor(cfg)
 trainer = DefaultTrainer(cfg) 
 trainer.resume_or_load(resume=True)
 
+# params_count = sum(p.numel() for p in predictor.model.parameters())
+# print('total number of parameters: {}'.format(params_count))
+# import ipdb; ipdb.set_trace()
 ## Evaluation happens here
 from detectron2.evaluation import COCOEvaluator, inference_on_dataset
 from detectron2.data import build_detection_test_loader
-evaluator = COCOEvaluator("kitti/test", cfg, False, output_dir="./resnet-101_32x8d_FPN_deform_conv/")
+evaluator = COCOEvaluator("kitti/test", cfg, False, output_dir="./random")
 val_loader = build_detection_test_loader(cfg, "kitti/test")
 results  = inference_on_dataset(predictor.model, val_loader, evaluator)
-import ipdb; ipdb.set_trace()
+
 # from detectron2.utils.visualizer import ColorMode
 # time_inference = []
 # # dataset_dicts = get_kitti_dicts("/network/tmp1/bhattdha/kitti_dataset", 'test')

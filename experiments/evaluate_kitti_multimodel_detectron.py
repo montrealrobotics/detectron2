@@ -30,7 +30,7 @@ class_list = ['Car', 'Van', 'Truck', 'Tram']
 def get_kitti_dicts(root_dir, data_label):
     
     image_names = sorted(glob.glob(root_dir+"/images/training/*.png"))
-    train_images = int(len(image_names)*0.98)
+    train_images = int(len(image_names)*0.75)
     test_images = len(image_names) - train_images
     if data_label == 'train':
         image_names = image_names[:train_images]
@@ -125,6 +125,9 @@ cfg_dict2 = torch.load('/network/tmp1/bhattdha/detectron2_kitti/resnet-50_FPN/re
 cfg1 = cfg_dict1['cfg']
 cfg2 = cfg_dict2['cfg']
 
+cfg1.MODEL.RPN.POST_NMS_TOPK_TEST = 500
+cfg2.MODEL.RPN.POST_NMS_TOPK_TEST = 500
+
 cfg1.DATASETS.TEST = ("kitti/test",)   # no metrics implemented for this dataset
 cfg1.DATALOADER.NUM_WORKERS = 2
 cfg1.SOLVER.IMS_PER_BATCH = 6
@@ -164,12 +167,16 @@ predictor2 = DefaultPredictor(cfg2)
 # trainer = DefaultTrainer(cfg) 
 # trainer.resume_or_load(resume=True)
 
+
+
+# import ipdb; ipdb.set_trace()
+
 ## Evaluation happens here
 from detectron2.evaluation import COCOEvaluator, inference_on_dataset_mm
 from detectron2.data import build_detection_test_loader
 evaluator = COCOEvaluator("kitti/test", cfg1, False, output_dir="./random/")
 val_loader = build_detection_test_loader(cfg1, "kitti/test")
-results  = inference_on_dataset_mm(predictor1.model, predictor2.model, val_loader, evaluator)
+results  = inference_on_dataset_mm(predictor2.model, predictor2.model, val_loader, evaluator)
 import ipdb; ipdb.set_trace()
 # from detectron2.utils.visualizer import ColorMode
 # time_inference = []

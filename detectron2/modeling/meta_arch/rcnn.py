@@ -120,7 +120,7 @@ class GeneralizedRCNN(nn.Module):
         if detected_instances is None:
             if self.proposal_generator:
                 proposals, _ = self.proposal_generator(images, features, None)
-                import ipdb; ipdb.set_trace()
+                # import ipdb; ipdb.set_trace()
             else:
                 assert "proposals" in batched_inputs[0]
                 proposals = [x["proposals"].to(self.device) for x in batched_inputs]

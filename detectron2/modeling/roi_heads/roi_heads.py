@@ -143,6 +143,7 @@ class ROIHeads(torch.nn.Module):
         # fmt: on
 
         # Matcher to assign box proposals to gt boxes
+        # import ipdb; ipdb.set_trace()
         self.proposal_matcher = Matcher(
             cfg.MODEL.ROI_HEADS.IOU_THRESHOLDS,
             cfg.MODEL.ROI_HEADS.IOU_LABELS,
@@ -238,6 +239,7 @@ class ROIHeads(torch.nn.Module):
             match_quality_matrix = pairwise_iou(
                 targets_per_image.gt_boxes, proposals_per_image.proposal_boxes
             )
+
             matched_idxs, matched_labels = self.proposal_matcher(match_quality_matrix)
             sampled_idxs, gt_classes = self._sample_proposals(
                 matched_idxs, matched_labels, targets_per_image.gt_classes
@@ -268,6 +270,7 @@ class ROIHeads(torch.nn.Module):
             num_fg_samples.append(gt_classes.numel() - num_bg_samples[-1])
             proposals_with_gt.append(proposals_per_image)
 
+        
         # Log the number of fg/bg samples that are selected for training ROI heads
         storage = get_event_storage()
         storage.put_scalar("roi_head/num_fg_samples", np.mean(num_fg_samples))
@@ -420,6 +423,7 @@ class Res5ROIHeads(ROIHeads):
                 losses["loss_mask"] = mask_rcnn_loss(mask_logits, proposals)
             return [], losses
         else:
+
             pred_instances, _ = outputs.inference(
                 self.test_score_thresh, self.test_nms_thresh, self.test_detections_per_img
             )
@@ -557,6 +561,7 @@ class StandardROIHeads(ROIHeads):
         """
         del images
         if self.training:
+
             proposals = self.label_and_sample_proposals(proposals, targets)
         del targets
 
@@ -570,9 +575,8 @@ class StandardROIHeads(ROIHeads):
             losses.update(self._forward_keypoint(features_list, proposals))
             return proposals, losses
         else:
-
+            # import ipdb; ipdb.set_trace()
             pred_instances = self._forward_box(features_list, proposals)
-            # import pdb; pdb.set_trace()
             # During inference cascaded prediction is used: the mask and keypoints heads are only
             # applied to the top scoring box detections.
             pred_instances = self.forward_with_given_boxes(features, pred_instances)
@@ -619,8 +623,11 @@ class StandardROIHeads(ROIHeads):
             In training, a dict of losses.
             In inference, a list of `Instances`, the predicted instances.
         """
+        
         box_features = self.box_pooler(features, [x.proposal_boxes for x in proposals])
+        # print(box_features.shape)
         box_features = self.box_head(box_features)
+        import ipdb; ipdb.set_trace()
         pred_class_logits, pred_proposal_deltas, pred_proposal_uncertain = self.box_predictor(box_features)
 
         del box_features
