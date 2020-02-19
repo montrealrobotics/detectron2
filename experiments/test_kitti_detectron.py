@@ -102,7 +102,8 @@ cfg = get_cfg()
 
 
 # loading config used during train time
-cfg_dict = torch.load('/network/tmp1/bhattdha/detectron2_kitti/resnet-50_FPN/resnet-50_FPN_cfg.final')
+# cfg_dict = torch.load('/network/tmp1/bhattdha/detectron2_kitti/resnet-50_FPN/resnet-50_FPN_cfg.final')
+cfg_dict = torch.load('/network/tmp1/bhattdha/detectron2_kitti/resnet-101_32x8d_FPN_deform_conv/resnet-101_32x8d_FPN_deform_conv_cfg.final')
 cfg = cfg_dict['cfg']
 
 # cfg.DATASETS.TRAIN = ("kitti/train",)
@@ -117,11 +118,11 @@ cfg.MODEL.ROI_HEADS.NUM_CLASSES = len(class_list)  #  (kitti)
 
 
 # import pdb; pdb.set_trace()
-cfg.OUTPUT_DIR = '/network/tmp1/bhattdha/detectron2_kitti/resnet-50_FPN/'
+cfg.OUTPUT_DIR = '/network/tmp1/bhattdha/detectron2_kitti/resnet-101_32x8d_FPN_deform_conv/'
 # import pdb; pdb.set_trace()
 
 """Now, we perform inference with the trained model on the kitti dataset. First, let's create a predictor using the model we just trained:"""
-cfg.MODEL.WEIGHTS = os.path.join(cfg.OUTPUT_DIR, "model_0034999.pth")
+cfg.MODEL.WEIGHTS = os.path.join(cfg.OUTPUT_DIR, "model_0039999.pth")
 cfg.MODEL.ROI_HEADS.SCORE_THRESH_TEST = 0.7   # set the testing threshold for this model
 # cfg.DATASETS.TEST = ("kitti/test", )
 predictor = DefaultPredictor(cfg)
@@ -133,28 +134,63 @@ predictor = DefaultPredictor(cfg)
 from detectron2.utils.visualizer import ColorMode
 time_inference = []
 # dataset_dicts = get_kitti_dicts("/network/tmp1/bhattdha/kitti_dataset", 'test')
-image_names = glob.glob(root_dir+"/images/testing/*.png")
-for idx, im_name in enumerate(image_names):   
-    print(idx, im_name)
-    im = cv2.imread(im_name)
-    import time
-    st_time = time.time()
-    outputs = predictor(im)
-    tot_time = time.time() - st_time
-    print("total time per image is:", tot_time)
-    time_inference.append(tot_time)
-    # import pdb; pdb.set_trace()
-    # pdb.set_trace()
-    v = Visualizer(im[:, :, ::-1],
-                   metadata=kitti_metadata, 
-                   scale=1.0, 
-                   instance_mode=ColorMode.IMAGE   
-    )
+# image_names = glob.glob(root_dir+"/images/testing/*.png")
+# for idx, im_name in enumerate(image_names):   
+#     print(idx, im_name)
+    # im = cv2.imread(im_name)
+    # import time
+    # st_time = time.time()
+    # outputs = predictor(im)
+    # spred_boxes = outputs['instances'].get_fields()['pred_boxes'].tensor.cpu().numpy()
+    # pred_classes = outputs['instances'].get_fields()['pred_classes'].cpu().numpy()
+#     import ipdb; ipdb.set_trace()
+#     tot_time = time.time() - st_time
+#     print("total time per image is:", tot_time)
+#     time_inference.append(tot_time)
+#     # import pdb; pdb.set_trace()
+#     # pdb.set_trace()
+#     v = Visualizer(im[:, :, ::-1],
+#                    metadata=kitti_metadata, 
+#                    scale=1.0, 
+#                    instance_mode=ColorMode.IMAGE   
+#     )
 
-    v = v.draw_instance_predictions(outputs["instances"].to("cpu"))
-    # print("saving images")
-    # print(type(v))
-    cv2.imwrite("/network/tmp1/bhattdha/detectron2_kitti/resnet-50_FPN/test_outputs/" + str(idx).zfill(6) + '.png', v.get_image()[:, :, ::-1]) 
-    # cv2_imshow(v.get_image()[:, :, ::-1])
+#     v = v.draw_instance_predictions(outputs["instances"].to("cpu"))
+#     # print("saving images")
+#     # print(type(v))
+#     cv2.imwrite("/network/tmp1/bhattdha/detectron2_kitti/resnet-50_FPN/test_outputs/" + str(idx).zfill(6) + '.png', v.get_image()[:, :, ::-1]) 
+#     # cv2_imshow(v.get_image()[:, :, ::-1])
     
-print("Average time is:", np.mean(np.array(time_inference)))
+# print("Average time is:", np.mean(np.array(time_inference)))
+
+
+kitti_tracking_dict = '/network/tmp1/bhattdha/kitti_tracking/'
+kitti_seqs = glob.glob(kitti_tracking_dict + '*')
+kitti_seqs.sort()
+final_result = {}
+
+for seq in kitti_seqs:
+    print(seq)
+    images_dict = {}
+    images_dict_list = []
+    print(seq[-4:])
+    images = glob.glob(seq + '/*.png')
+    images.sort()
+    for image in images:
+        
+        print(image[-10:])
+        im = cv2.imread(image)
+        outputs = predictor(im)
+        pred_boxes = outputs['instances'].get_fields()['pred_boxes'].tensor.cpu().numpy()
+        pred_classes = outputs['instances'].get_fields()['pred_classes'].cpu().numpy()
+        ## for car class
+        ind = np.where(pred_classes==0)[0]
+        # if (pred_classes!=0).sum() > 0:
+        #     import ipdb; ipdb.set_trace()
+        pred_boxes = pred_boxes[ind,:]
+        images_dict[image[-10:]] = pred_boxes
+        images_dict_list.append(images_dict)
+
+    final_result[seq[-4:]] = images_dict_list
+
+import ipdb; ipdb.set_trace()

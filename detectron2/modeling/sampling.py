@@ -31,7 +31,6 @@ def subsample_labels(labels, num_samples, positive_fraction, bg_label):
     """
     positive = torch.nonzero((labels != -1) & (labels != bg_label)).squeeze(1)
     negative = torch.nonzero(labels == bg_label).squeeze(1)
-
     num_pos = int(num_samples * positive_fraction)
     # protect against not enough positive examples
     num_pos = min(positive.numel(), num_pos)

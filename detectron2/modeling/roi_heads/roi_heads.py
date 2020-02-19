@@ -239,7 +239,7 @@ class ROIHeads(torch.nn.Module):
             match_quality_matrix = pairwise_iou(
                 targets_per_image.gt_boxes, proposals_per_image.proposal_boxes
             )
-
+            # import ipdb; ipdb.set_trace()
             matched_idxs, matched_labels = self.proposal_matcher(match_quality_matrix)
             sampled_idxs, gt_classes = self._sample_proposals(
                 matched_idxs, matched_labels, targets_per_image.gt_classes
@@ -475,6 +475,7 @@ class StandardROIHeads(ROIHeads):
         self._init_keypoint_head(cfg)
         # import pdb; pdb.set_trace()
         self.cfg = cfg
+        self.image_count = 0
 
     def _init_box_head(self, cfg):
         # fmt: off
@@ -627,7 +628,18 @@ class StandardROIHeads(ROIHeads):
         box_features = self.box_pooler(features, [x.proposal_boxes for x in proposals])
         # print(box_features.shape)
         box_features = self.box_head(box_features)
-        import ipdb; ipdb.set_trace()
+        # import ipdb; ipdb.set_trace()
+
+        # box_features_numpy = box_features.detach().clone().cpu().numpy()
+        # box_gt_class_numpy = proposals[0].gt_classes.cpu().numpy()
+
+        # store_dict = {'features': box_features_numpy, 'gt_classes':box_gt_class_numpy}
+
+        # if self.image_count < 5000:
+        #     np.save(f'/network/tmp1/bhattdha/detectron2_kitti/embeddings_storage/{str(self.image_count).zfill(6)}.npy', np.array(store_dict))
+        #     self.image_count += 1
+        ## This is where we save the embeddings
+
         pred_class_logits, pred_proposal_deltas, pred_proposal_uncertain = self.box_predictor(box_features)
 
         del box_features
