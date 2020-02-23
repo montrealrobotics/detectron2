@@ -6,17 +6,14 @@ fully connected variational autoencoder
 import torch
 import torch.nn as nn
 import torchvision
+import random
 import numpy as np
+from config import *
 
-
-latent_space_dim = 16
-
-if torch.cuda.is_available():
-    device = torch.device('cuda:0') # so we can do .to(device)
-    print('Using GPU.')
-else:
-    device = torch.device('cpu')
-    print('Using CPU.')
+torch.manual_seed(seed)
+torch.cuda.manual_seed_all(seed)
+np.random.seed(seed)
+random.seed(seed)
 
 class VAE(nn.Module):
 	def __init__(self, latent_space_dim):
