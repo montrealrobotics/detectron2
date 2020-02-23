@@ -44,6 +44,9 @@ for label in class_labels:
 features = X_new
 labels = y_new
 
+# features = X
+# labels = y
+
 # features = input_data['features']
 # labels = input_data['labels']
 # indices = np.where(labels!=5)
@@ -51,16 +54,16 @@ labels = y_new
 
 # import ipdb; ipdb.set_trace()
 
-epochs = 1500
-batchsize = 512
+epochs = 1000
+batchsize = 64
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 autoencoder_obj = autoencoder_obj.to(device)
-
+autoencoder_obj.train()
 criterion = nn.MSELoss()
-optimizer = optim.SGD(autoencoder_obj.parameters(), lr=1e-5, momentum=0.9, nesterov=True, weight_decay = 0.01)
-lr_scheduler = optim.lr_scheduler.MultiStepLR(optimizer, milestones = [300, 800, 1100, 1300, 1400], gamma=0.1, last_epoch=-1)
+optimizer = optim.SGD(autoencoder_obj.parameters(), lr=1e-8, momentum=0.9, nesterov=True, weight_decay = 0.01)
+lr_scheduler = optim.lr_scheduler.MultiStepLR(optimizer, milestones = [10000, 20000, 40000], gamma=0.1, last_epoch=-1)
 
 for epoch in range(epochs):
 
@@ -89,6 +92,6 @@ for epoch in range(epochs):
 	# print(len(features))
 
 
-torch.save(autoencoder_obj.state_dict(), "autoencoder_02.model")
+torch.save(autoencoder_obj.state_dict(), "autoencoder_batchnorm.model")
 
 import ipdb; ipdb.set_trace()

@@ -22,22 +22,28 @@ class autoencoder(nn.Module):
 
 		self.encoder = nn.Sequential(
 			nn.Linear(1024, 768),
+			nn.BatchNorm1d(768),
 			nn.ELU(inplace=True),
 
 			nn.Linear(768, 512),
+			nn.BatchNorm1d(512),
 			nn.ELU(inplace=True),
 
 			nn.Linear(512, 256),
+			nn.BatchNorm1d(256),
 			nn.ELU(inplace=True),
 
 			nn.Linear(256, 128),
+			nn.BatchNorm1d(128),
 			nn.ELU(inplace=True),
 
 			nn.Linear(128, 64),
+			nn.BatchNorm1d(64),
  			nn.ELU(inplace=True),
 
-			nn.Linear(64, 32),
-			nn.ELU(inplace=True)
+			# nn.Linear(64, 32),
+			# nn.BatchNorm1d(32),
+			# nn.ELU(inplace=True)
 
 		)
 
@@ -46,19 +52,24 @@ class autoencoder(nn.Module):
 		"""
 
 		self.decoder = nn.Sequential(
-			nn.Linear(32, 64),
-			nn.ELU(inplace=True),
+			# nn.Linear(32, 64),
+			# nn.BatchNorm1d(64),
+			# nn.ELU(inplace=True),
 			
 			nn.Linear(64, 128),
+			nn.BatchNorm1d(128),
 			nn.ELU(inplace=True),
 
 			nn.Linear(128, 256),
+			nn.BatchNorm1d(256),
 			nn.ELU(inplace=True),
 
 			nn.Linear(256, 512),
+			nn.BatchNorm1d(512),
 			nn.ELU(inplace=True),
 
 			nn.Linear(512, 768),
+			nn.BatchNorm1d(768),
 			nn.ELU(inplace=True),
 
 			nn.Linear(768, 1024),
