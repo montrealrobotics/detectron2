@@ -8,7 +8,7 @@ import torch
 class_list = ['Car', 'Van', 'Truck', 'Tram']
 epochs = [200, 500, 800, 1000] ## different epochs for different classes
 milestones = [[50, 100, 170], [125, 250, 400], [200, 400, 680], [250, 500, 850]]
-num_classes = len(class_list)
+num_classes = len(class_list) 
 
 class_labels = [i for i in range(num_classes)]
 batchsize = 128

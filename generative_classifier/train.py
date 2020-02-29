@@ -31,7 +31,9 @@ for class_label in class_labels:
 	indices = np.where(y==class_label)[0]
 	# indices = np.random.permutation(indices)
 	data = X[indices,:]
-	
+	class_label_fake = (class_label + 5)%len(class_labels)
+	indices_fake = np.where(y==class_label_fake)[0]
+	val_other_class_data = X[indices_fake,:]
 	# data = np.random.permutation(data)
 
 	train_data_samples = int(len(data)*train_fraction)

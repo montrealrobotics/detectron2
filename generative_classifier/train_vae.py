@@ -19,7 +19,7 @@ random.seed(seed)
 
 class VAEtrain(object):
 	"""here, we will create a VAE object and also train the same model, store it etc etc"""
-	def __init__(self, class_id, class_name, data= None, epochs = 200, milestones = [40, 100, 150], save_directory_name = 'vae_logs_1e-3_32'):
+	def __init__(self, class_id, class_name, data= None, epochs = 200, milestones = [40, 100, 150], save_directory_name = 'vae_diff_val_data'):
 		super(VAEtrain, self).__init__()
 		self.reconstruction_error = []
 		self.kl_divergence = []
