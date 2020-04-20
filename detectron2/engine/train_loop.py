@@ -210,6 +210,7 @@ class SimpleTrainer(TrainerBase):
         """
         If your want to do something with the losses, you can wrap the model.
         """
+        
         loss_dict = self.model(data)
         print(loss_dict)
         losses = sum(loss for loss in loss_dict.values())
@@ -225,13 +226,12 @@ class SimpleTrainer(TrainerBase):
         """
         self.optimizer.zero_grad()
         
-        # import pdb; pdb.set_trace()
 
         # losses.backward()
 
         # To avoid bad gradients, this is a temporary "hack" and probably very bad thing to do too, come back again to fix!!
         if losses.item() < 50:
-            print("Doing nothing LMAO")
+            # print("Doing nothing LMAO")
             losses.backward()
             self.optimizer.step()
         else:

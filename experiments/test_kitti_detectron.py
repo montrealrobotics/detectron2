@@ -133,6 +133,31 @@ predictor = DefaultPredictor(cfg)
 
 from detectron2.utils.visualizer import ColorMode
 time_inference = []
+
+
+im = cv2.imread('/network/home/bhattdha/detectron2/experiments/messedup.jpg')
+import time
+st_time = time.time()
+outputs = predictor(im)
+spred_boxes = outputs['instances'].get_fields()['pred_boxes'].tensor.cpu().numpy()
+pred_classes = outputs['instances'].get_fields()['pred_classes'].cpu().numpy()
+
+tot_time = time.time() - st_time
+print("total time per image is:", tot_time)
+time_inference.append(tot_time)
+# import pdb; pdb.set_trace()
+# pdb.set_trace()
+v = Visualizer(im[:, :, ::-1],
+               metadata=kitti_metadata, 
+               scale=1.0, 
+               instance_mode=ColorMode.IMAGE   
+)
+
+v = v.draw_instance_predictions(outputs["instances"].to("cpu"))
+# print("saving images")
+    # print(type(v))
+cv2.imwrite('messedup_out.png', v.get_image()[:, :, ::-1]) 
+import ipdb; ipdb.set_trace()
 # dataset_dicts = get_kitti_dicts("/network/tmp1/bhattdha/kitti_dataset", 'test')
 # image_names = glob.glob(root_dir+"/images/testing/*.png")
 # for idx, im_name in enumerate(image_names):   

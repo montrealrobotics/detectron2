@@ -10,15 +10,16 @@ from torchvision import transforms
 # from config import batch_size
 from config import *
 import random
+import h5py
 # edit root which is data the first param
 
-input_data = np.load('/network/tmp1/bhattdha/detectron2_cityscapes/resnet-101_cityscapes/embeddings_storage/final_data.npy', allow_pickle=True)[()]
+input_data = h5py.File('/network/tmp1/bhattdha/detectron2_cityscapes/resnet-101_cityscapes/embeddings_storage/final_data.h5', 'r')
 # input_data_OOD = np.load('/network/tmp1/bhattdha/detectron2_kitti/embeddings_storage/final_data_OOD.npy', allow_pickle=True)[()]
 
 
 ## the dataset
-X_org = input_data['features']
-y_org = input_data['labels']
+X_org = np.array(input_data.get('features'))
+y_org = np.array(input_data.get('gt_classes'))
 # X_ood = input_data_OOD['features']
 # y_ood = input_data_OOD['labels']
 
@@ -36,6 +37,7 @@ np.random.seed(seed)
 random.seed(seed)
 
 val_data_all_classes = {}
+train_data_all_classes = {}
 
 means = {}
 covars = {}
@@ -67,6 +69,7 @@ for class_label in class_labels:
 	# data = {'train_data': train_data, 'val_data': val_data}
 
 	val_data_all_classes[str(class_label)] = val_data
+	train_data_all_classes[str(class_label)] = train_data
 	
 	mean = np.mean(train_data, axis = 0)
 	cov = np.cov(train_data.T)
@@ -76,31 +79,29 @@ for class_label in class_labels:
 
 ## let's do the evaluation
 stats = {}
-for class_label in val_data_all_classes.keys():
-	data = val_data_all_classes[class_label]
-	tp = 0 
-	fp = 0
-	for i, data_point in enumerate(data):
-		print(class_label, i)
-		mds = [] ## has mahalanobis distances
-		for mean_label in means.keys():
-			
-			diff = (data_point - means[mean_label]).reshape(len(data_point), 1)
-			
-			mahalanobis_distance = np.dot(diff.T, np.dot(covars[mean_label], diff))
-			mds.append(mahalanobis_distance)
+maha_dists = {}
+for class_label in train_data_all_classes.keys():
+	print("Class label: ", class_label)
+	data = train_data_all_classes[class_label]
+	maha_dists[class_label] = []
+	diff = (data - means[class_label])
+	maha_dists[class_label] = np.sum(np.multiply(diff, np.dot(covars[class_label], diff.T).T), axis=1)
+
+maha_thresh = {}
+gaussian_stats = {'means': means, 'covars': covars}
+
+acc_threshs = [80.0, 85.0, 90.0, 95.0, 98.0, 99.0]
+for acc_thresh in acc_threshs:
+	acc_classes = {}
+	for class_label in train_data_all_classes.keys():
+		md_list = maha_dists[class_label]
+		md_list.sort()
+		index = int(len(md_list)*acc_thresh/100.0)
+		acc_classes[class_label] = md_list[index]
 		
-		if str(class_labels[np.argmin(np.array(mds))]) == class_label:
-			tp += 1
-		else: 
-			fp += 1
-	stats[class_label] = {'tp':tp, 'fp':fp, 'accuracy': 100.0*tp/(tp+fp)}
+	maha_thresh[int(acc_thresh)] = acc_classes
 
-import ipdb; ipdb.set_trace()	
-		
+final_dict = {'maha_thresh':maha_thresh, 'gaussian_stats':gaussian_stats}
 
-
-
-
-
-
+np.save('maha_thresh_cityscapes.npy', final_dict)
+import ipdb; ipdb.set_trace()

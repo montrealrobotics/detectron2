@@ -2,7 +2,6 @@ import os
 # os.environ["CUDA_DEVICE_ORDER"]="PCI_BUS_ID"
 # os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 
-from train_vae import VAEtrain
 import torch
 import torchvision
 import numpy as np
@@ -12,7 +11,7 @@ from config import *
 import random
 # edit root which is data the first param
 
-input_data = np.load('/network/tmp1/bhattdha/detectron2_cityscapes/resnet-101_cityscapes/embeddings_storage/final_data.npy', allow_pickle=True)[()]
+input_data = np.load('/network/tmp1/bhattdha/detectron2_kitti/embeddings_storage/final_data.npy', allow_pickle=True)[()]
 # input_data_OOD = np.load('/network/tmp1/bhattdha/detectron2_kitti/embeddings_storage/final_data_OOD.npy', allow_pickle=True)[()]
 
 
@@ -25,10 +24,8 @@ y_org = input_data['labels']
 # y_ood[y_ood == 6] = 5
 # y_ood[y_ood == 7] = 5
 # ood_class = [5, 6, 7]
-# X =  np.concatenate((X_org, X_ood), axis=0)
-# y =  np.concatenate((y_org, y_ood), axis=0)
-X = X_org
-y = y_org
+X =  X_org
+y =  y_org
 ## total reprodicibility
 torch.manual_seed(seed)
 torch.cuda.manual_seed_all(seed)
@@ -40,11 +37,12 @@ val_data_all_classes = {}
 means = {}
 covars = {}
 
-train_fraction = 0.8
+# train_fraction = 0.7
 num_classes = max(y) + 1
 
-class_labels = np.random.permutation(num_classes)
-class_labels = np.random.permutation(class_labels)
+class_labels = np.arange(num_classes)
+# class_labels = np.random.permutation(num_classes)
+# class_labels = np.random.permutation(class_labels)
 
 
 for class_label in class_labels:
@@ -71,24 +69,31 @@ for class_label in class_labels:
 	mean = np.mean(train_data, axis = 0)
 	cov = np.cov(train_data.T)
 	means[str(class_label)] = mean
-
+	## may be wrong! 
 	covars[str(class_label)] = np.linalg.inv(cov + 1e-10*np.identity(1024))
+
 
 ## let's do the evaluation
 stats = {}
+maha_all = []
 for class_label in val_data_all_classes.keys():
 	data = val_data_all_classes[class_label]
 	tp = 0 
 	fp = 0
-	for i, data_point in enumerate(data):
-		print(class_label, i)
+	for data_point in data:
+		# print(data_point)
 		mds = [] ## has mahalanobis distances
 		for mean_label in means.keys():
 			
+			
 			diff = (data_point - means[mean_label]).reshape(len(data_point), 1)
 			
-			mahalanobis_distance = np.dot(diff.T, np.dot(covars[mean_label], diff))
+			mahalanobis_distance = np.dot(diff.T, np.dot(covars[mean_label], diff))[0][0]
+			
+			# maha_all.append(mahalanobis_distance)
 			mds.append(mahalanobis_distance)
+
+		maha_all.append(mds+[int(class_label)])
 		
 		if str(class_labels[np.argmin(np.array(mds))]) == class_label:
 			tp += 1
@@ -96,7 +101,8 @@ for class_label in val_data_all_classes.keys():
 			fp += 1
 	stats[class_label] = {'tp':tp, 'fp':fp, 'accuracy': 100.0*tp/(tp+fp)}
 
-import ipdb; ipdb.set_trace()	
+np.save('maha_dists.npy', maha_all)
+
 		
 
 

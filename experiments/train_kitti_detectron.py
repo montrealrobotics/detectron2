@@ -24,7 +24,9 @@ args = vars(ap.parse_args())
 
 dir_name = args['experiment_comment']
 
-class_list = ['Car', 'Van', 'Truck', 'Tram']
+# class_list = ['Car', 'Van', 'Truck', 'Tram']
+class_list = ['Pedestrian', 'Cyclist', 'Person_sitting', 'Tram']
+
 
 # write a function that loads the dataset into detectron2's standard format
 def get_kitti_dicts(root_dir, data_label):
@@ -34,7 +36,7 @@ def get_kitti_dicts(root_dir, data_label):
     test_images = len(image_names) - train_images
     if data_label == 'train':
         image_names = image_names[:train_images]
-        # image_names = image_names[0:10]
+        image_names = image_names[0:10]
     if data_label == 'test':
         image_names = image_names[-test_images:]
     # print(image_names)
@@ -144,14 +146,15 @@ cfg.SOLVER.IMS_PER_BATCH = 1
 # cfg.SOLVER.BASE_LR = 0.015
 cfg.SOLVER.BASE_LR = 2e-4  
 cfg.SOLVER.MAX_ITER =  250000  
-cfg.MODEL.ROI_HEADS.BATCH_SIZE_PER_IMAGE = 64   # faster, and good enough for this toy dataset
+cfg.MODEL.ROI_HEADS.BATCH_SIZE_PER_IMAGE = 512   # faster, and good enough for this toy dataset
 cfg.MODEL.ROI_HEADS.NUM_CLASSES = len(class_list)  #  (kitti)
 cfg.OUTPUT_DIR = '/network/tmp1/bhattdha/detectron2_kitti/' + dir_name
 
-cfg.MODEL.RPN.IOU_THRESHOLDS = [0.00005, 0.7]
-cfg.MODEL.ROI_HEADS.IOU_THRESHOLDS = [0.00005, 0.7]
+cfg.MODEL.RPN.IOU_THRESHOLDS = [0.00005, 0.5]
+cfg.MODEL.ROI_HEADS.IOU_THRESHOLDS = [0.00005, 0.5]
 cfg.MODEL.ROI_HEADS.IOU_LABELS = [0, -1, 1]
 cfg.MODEL.ROI_HEADS.POSITIVE_FRACTION = 0.99
+cfg.MODEL.ROI_HEADS.PROPOSAL_APPEND_GT = False
 
 if cfg.CUSTOM_OPTIONS.DETECTOR_TYPE is 'deterministic':
     ## has to be smooth l1 loss if detector is deterministc

@@ -20,6 +20,10 @@ from .box_head import build_box_head
 from .fast_rcnn import FastRCNNOutputLayers, FastRCNNOutputs
 from .keypoint_head import build_keypoint_head, keypoint_rcnn_inference, keypoint_rcnn_loss
 from .mask_head import build_mask_head, mask_rcnn_inference, mask_rcnn_loss
+import bz2
+import pickle
+import _pickle as cPickle
+import h5py
 
 ROI_HEADS_REGISTRY = Registry("ROI_HEADS")
 ROI_HEADS_REGISTRY.__doc__ = """
@@ -227,6 +231,7 @@ class ROIHeads(torch.nn.Module):
         # examples from the start of training. For RPN, this augmentation improves
         # convergence and empirically improves box AP on COCO by about 0.5
         # points (under one tested configuration).
+        
         if self.proposal_append_gt:
             proposals = add_ground_truth_to_proposals(gt_boxes, proposals)
 
@@ -476,6 +481,8 @@ class StandardROIHeads(ROIHeads):
         # import pdb; pdb.set_trace()
         self.cfg = cfg
         self.image_count = 0
+        self.bbox_features = None
+        self.bbox_labels = None
 
     def _init_box_head(self, cfg):
         # fmt: off
@@ -628,18 +635,50 @@ class StandardROIHeads(ROIHeads):
         box_features = self.box_pooler(features, [x.proposal_boxes for x in proposals])
         # print(box_features.shape)
         box_features = self.box_head(box_features)
-        # import ipdb; ipdb.set_trace()
 
+
+        '''
+        Storing box features and labels
+        '''
+        ############################################################################################################################################################################################################################################
         # box_features_numpy = box_features.detach().clone().cpu().numpy()
         # box_gt_class_numpy = proposals[0].gt_classes.cpu().numpy()
 
+        
+        # if len(proposals) > 1:
+        #     for i in range(len(proposals) - 1):
+        #         box_gt_class_numpy = np.concatenate((box_gt_class_numpy, proposals[i+1].gt_classes.cpu().numpy()),axis=0)
+
+        
+        # if self.bbox_features is None:
+        #     self.bbox_features = box_features_numpy
+        #     self.bbox_labels = box_gt_class_numpy
+
+        # else: 
+        #     self.bbox_features = np.concatenate((self.bbox_features, box_features_numpy),axis=0)
+        #     self.bbox_labels = np.concatenate((self.bbox_labels, box_gt_class_numpy),axis=0)
+
         # store_dict = {'features': box_features_numpy, 'gt_classes':box_gt_class_numpy}
 
-        # if self.image_count < 5000:
-        #     np.save(f'/network/tmp1/bhattdha/detectron2_kitti/embeddings_storage/{str(self.image_count).zfill(6)}.npy', np.array(store_dict))
+        # if self.image_count < 2500: ## that's the length of cityscapes dataset. Find by running print(len(data_loader.dataset)) in train_loop.py
+        #     # np.save(f'/network/tmp1/bhattdha/detectron2_cityscapes/resnet-101_cityscapes/embeddings_storage/{str(self.image_count).zfill(6)}.npy', np.array(store_dict))
         #     self.image_count += 1
-        ## This is where we save the embeddings
+        # elif self.image_count == 2500:
+        #     self.image_count += 1
+        #     print("Storing the data! Give it some time bro!")
+        #     # final_dict = {"features":self.bbox_features, "labels": self.bbox_labels}
+        #     hf = h5py.File('/network/tmp1/bhattdha/detectron2_cityscapes/resnet-101_cityscapes/embeddings_storage/final_data.h5', 'w')
+        #     hf.create_dataset('features',data=self.bbox_features)
+        #     hf.create_dataset('gt_classes',data=self.bbox_labels)
+        #     hf.close()
+        #     # import ipdb; ipdb.set_trace()
+        #     # np.save(f'/network/tmp1/bhattdha/detectron2_cityscapes/resnet-101_cityscapes/embeddings_storage/final_data.npy', np.array(final_dict))
+        # else:
+        #     import sys; sys.exit(0)
 
+        ############################################################################################################################################################################################################################################
+
+        # This is where we save the embeddings
         pred_class_logits, pred_proposal_deltas, pred_proposal_uncertain = self.box_predictor(box_features)
 
         del box_features

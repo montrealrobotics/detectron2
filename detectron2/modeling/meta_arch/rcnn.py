@@ -12,6 +12,8 @@ from ..proposal_generator import build_proposal_generator
 from ..roi_heads import build_roi_heads
 from .build import META_ARCH_REGISTRY
 
+import copy
+
 __all__ = ["GeneralizedRCNN", "ProposalNetwork"]
 
 
@@ -66,7 +68,6 @@ class GeneralizedRCNN(nn.Module):
             return self.inference(batched_inputs)
 
         images = self.preprocess_image(batched_inputs)
-        # import ipdb; ipdb.set_trace()
         if "instances" in batched_inputs[0]:
             gt_instances = [x["instances"].to(self.device) for x in batched_inputs]
         elif "targets" in batched_inputs[0]:
@@ -120,7 +121,6 @@ class GeneralizedRCNN(nn.Module):
         if detected_instances is None:
             if self.proposal_generator:
                 proposals, _ = self.proposal_generator(images, features, None)
-                # import ipdb; ipdb.set_trace()
             else:
                 assert "proposals" in batched_inputs[0]
                 proposals = [x["proposals"].to(self.device) for x in batched_inputs]
@@ -182,6 +182,7 @@ class ProposalNetwork(nn.Module):
                 The dict contains one key "proposals" whose value is a
                 :class:`Instances` with keys "proposal_boxes" and "objectness_logits".
         """
+
         images = [x["image"].to(self.device) for x in batched_inputs]
         images = [self.normalizer(x) for x in images]
         images = ImageList.from_tensors(images, self.backbone.size_divisibility)
@@ -199,15 +200,18 @@ class ProposalNetwork(nn.Module):
         proposals, proposal_losses = self.proposal_generator(images, features, gt_instances)
         # In training, the proposals are not useful at all but we generate them anyway.
         # This makes RPN-only models about 5% slower.
+        proposals_process = copy.deepcopy(proposals)
+
         if self.training:
             return proposal_losses
 
+
         processed_results = []
         for results_per_image, input_per_image, image_size in zip(
-            proposals, batched_inputs, images.image_sizes
+            proposals_process, batched_inputs, images.image_sizes
         ):
             height = input_per_image.get("height", image_size[0])
             width = input_per_image.get("width", image_size[1])
             r = detector_postprocess(results_per_image, height, width)
             processed_results.append({"proposals": r})
-        return processed_results
+        return [{'proposals': proposals, 'processed_results': processed_results}]
