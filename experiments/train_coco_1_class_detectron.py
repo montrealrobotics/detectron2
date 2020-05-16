@@ -65,7 +65,7 @@ from detectron2.config import get_cfg
 
 cfg = get_cfg()
 # cfg.merge_from_file("/network/home/bhattdha/detectron2/configs/COCO-Detection/faster_rcnn_R_101_FPN_3x.yaml")
-cfg.merge_from_file("/network/home/bhattdha/detectron2/configs/COCO-InstanceSegmentation/mask_rcnn_R_101_FPN_3x.yaml")
+cfg.merge_from_file("/network/home/bhattdha/detectron2/configs/COCO-InstanceSegmentation/mask_rcnn_R_101_FPN_3x_1_class.yaml")
 # cfg.merge_from_file("/network/home/bhattdha/detectron2/configs/COCO-Detection/faster_rcnn_X_101_32x8d_FPN_deform_conv_3x.yaml")
 cfg.DATASETS.TRAIN = ("coco_1_class",)
 cfg.DATASETS.TEST = ()   # no metrics implemented for this dataset

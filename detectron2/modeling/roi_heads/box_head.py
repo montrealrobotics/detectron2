@@ -31,15 +31,22 @@ class FastRCNNConvFCHead(nn.Module):
             norm: normalization for the conv layers
         """
         super().__init__()
-
+        
         # fmt: off
         num_conv   = cfg.MODEL.ROI_BOX_HEAD.NUM_CONV
         conv_dim   = cfg.MODEL.ROI_BOX_HEAD.CONV_DIM
+        conv_dim_list = cfg.MODEL.ROI_BOX_HEAD.CONV_DIM_LIST
         num_fc     = cfg.MODEL.ROI_BOX_HEAD.NUM_FC
         fc_dim     = cfg.MODEL.ROI_BOX_HEAD.FC_DIM
+        fc_dim_list = cfg.MODEL.ROI_BOX_HEAD.FC_DIM_LIST
         norm       = cfg.MODEL.ROI_BOX_HEAD.NORM
         # fmt: on
         assert num_conv + num_fc > 0
+
+        if len(conv_dim_list) == 0 or len(conv_dim_list) != num_conv:
+            conv_dim_list = [conv_dim for _ in range(num_conv)]    
+        if len(fc_dim_list) == 0 or len(fc_dim_list) != num_fc:
+            fc_dim_list = [fc_dim for _ in range(num_fc)]
 
         self._output_size = (input_shape.channels, input_shape.height, input_shape.width)
 
@@ -47,23 +54,23 @@ class FastRCNNConvFCHead(nn.Module):
         for k in range(num_conv):
             conv = Conv2d(
                 self._output_size[0],
-                conv_dim,
+                conv_dim_list[k],
                 kernel_size=3,
                 padding=1,
                 bias=not norm,
-                norm=get_norm(norm, conv_dim),
+                norm=get_norm(norm, conv_dim_list[k]),
                 activation=F.relu,
             )
             self.add_module("conv{}".format(k + 1), conv)
             self.conv_norm_relus.append(conv)
-            self._output_size = (conv_dim, self._output_size[1], self._output_size[2])
+            self._output_size = (conv_dim_list[k], self._output_size[1], self._output_size[2])
 
         self.fcs = []
         for k in range(num_fc):
-            fc = nn.Linear(np.prod(self._output_size), fc_dim)
+            fc = nn.Linear(np.prod(self._output_size), fc_dim_list[k])
             self.add_module("fc{}".format(k + 1), fc)
             self.fcs.append(fc)
-            self._output_size = fc_dim
+            self._output_size = fc_dim_list[k]
 
         for layer in self.conv_norm_relus:
             weight_init.c2_msra_fill(layer)

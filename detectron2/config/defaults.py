@@ -283,9 +283,11 @@ _C.MODEL.ROI_BOX_HEAD.POOLER_SAMPLING_RATIO = 0
 _C.MODEL.ROI_BOX_HEAD.POOLER_TYPE = "ROIAlignV2"
 
 _C.MODEL.ROI_BOX_HEAD.NUM_FC = 0
+_C.MODEL.ROI_BOX_HEAD.FC_DIM_LIST = [] ## random initialization
 # Hidden layer dimension for FC layers in the RoI box head
 _C.MODEL.ROI_BOX_HEAD.FC_DIM = 1024
 _C.MODEL.ROI_BOX_HEAD.NUM_CONV = 0
+_C.MODEL.ROI_BOX_HEAD.CONV_DIM_LIST = []
 # Channel dimension for Conv layers in the RoI box head
 _C.MODEL.ROI_BOX_HEAD.CONV_DIM = 256
 # Normalization method for the convolution layers.
