@@ -631,8 +631,8 @@ class StandardROIHeads(ROIHeads):
             In training, a dict of losses.
             In inference, a list of `Instances`, the predicted instances.
         """
-        
         box_features = self.box_pooler(features, [x.proposal_boxes for x in proposals])
+
         # print(box_features.shape)
         box_features = self.box_head(box_features)
 

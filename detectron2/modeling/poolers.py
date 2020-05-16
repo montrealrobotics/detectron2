@@ -111,7 +111,6 @@ class ROIPooler(nn.Module):
                 should be placed. The default is defined as level 4 in the FPN paper.
         """
         super().__init__()
-
         if isinstance(output_size, int):
             output_size = (output_size, output_size)
         assert len(output_size) == 2
