@@ -124,6 +124,9 @@ cfg.OUTPUT_DIR = '/network/tmp1/bhattdha/detectron2_kitti/resnet-101_32x8d_FPN_d
 """Now, we perform inference with the trained model on the kitti dataset. First, let's create a predictor using the model we just trained:"""
 cfg.MODEL.WEIGHTS = os.path.join(cfg.OUTPUT_DIR, "model_0039999.pth")
 cfg.MODEL.ROI_HEADS.SCORE_THRESH_TEST = 0.7   # set the testing threshold for this model
+cfg.MODEL.ROI_BOX_HEAD.CONV_DIM_LIST = []
+cfg.MODEL.ROI_BOX_HEAD.FC_DIM_LIST = []
+
 # cfg.DATASETS.TEST = ("kitti/test", )
 predictor = DefaultPredictor(cfg)
 

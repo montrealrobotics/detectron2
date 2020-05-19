@@ -73,16 +73,16 @@ cfg.DATALOADER.NUM_WORKERS = 2
 # cfg.MODEL.WEIGHTS = "detectron2://COCO-Detection/faster_rcnn_R_50_FPN_3x/137849458/model_final_280758.pkl"  # initialize from model zoo
 cfg.MODEL.WEIGHTS = "/network/home/bhattdha/model_final_a3ec72.pkl"
 # cfg.MODEL.WEIGHTS = "/network/tmp1/bhattdha/detectron2_kitti/model_0014999.pth"  # initialize fron deterministic model
-cfg.SOLVER.IMS_PER_BATCH = 6
+cfg.SOLVER.IMS_PER_BATCH = 3
 # cfg.SOLVER.BASE_LR = 0.015
 cfg.SOLVER.BASE_LR = 1e-3
 cfg.SOLVER.MAX_ITER =  250000  
-cfg.MODEL.ROI_HEADS.BATCH_SIZE_PER_IMAGE = 256   # faster, and good enough for this toy dataset
+cfg.MODEL.ROI_HEADS.BATCH_SIZE_PER_IMAGE = 512
 cfg.MODEL.ROI_HEADS.NUM_CLASSES = len(class_list)  #  (kitti)
 cfg.OUTPUT_DIR = '/network/tmp1/bhattdha/detectron2_coco/' + dir_name
 cfg.CUSTOM_OPTIONS.DETECTOR_TYPE = 'deterministic'
 
-cfg.MODEL.ROI_HEADS.POSITIVE_FRACTION = 0.8
+cfg.MODEL.ROI_HEADS.POSITIVE_FRACTION = 0.5
 
 if cfg.CUSTOM_OPTIONS.DETECTOR_TYPE is 'deterministic':
     ## has to be smooth l1 loss if detector is deterministc
