@@ -25,7 +25,7 @@ args = vars(ap.parse_args())
 dir_name = args['experiment_comment']
 
 # class_list = ['Car', 'Van', 'Truck', 'Tram']
-class_list = ['Pedestrian', 'Cyclist', 'Person_sitting', 'Tram']
+class_list = ['Car', 'Van', 'Truck', 'Pedestrian', 'Cyclist', 'Person_sitting', 'Tram']
 
 
 # write a function that loads the dataset into detectron2's standard format
@@ -108,24 +108,6 @@ kitti_metadata = MetadataCatalog.get('kitti/train')
 
 
 print("data loading")
-# dataset_dicts = get_kitti_dicts(root_dir, 'train')
-# print(dataset_dicts[0]['annotations'])
-
-# for d in random.sample(dataset_dicts, 15):
-#     # print(d)
-#     # print(d["file_name"])
-#     img = cv2.imread(d["file_name"])
-#     visualizer = Visualizer(img[:, :, ::-1], metadata=kitti_metadata, scale=1.0)
-#     vis = visualizer.draw_dataset_dict(d)
-    # print(vis.get_image()[:, :, ::-1].shape)   
-    # while(1):
-    #     cv2.imshow('', vis.get_image()[:, :, ::-1])
-    #     k = cv2.waitKey(33)
-    #     if k == -1:
-    #         continue
-    #     elif k == 27:
-    #         break
-
 
 
 """Now, let's fine-tune a coco-pretrained R50-FPN Mask R-CNN model on the balloon dataset. It takes ~6 minutes to train 300 iterations on Colab's K80 GPU."""
@@ -135,26 +117,27 @@ from detectron2.config import get_cfg
 
 cfg = get_cfg()
 # cfg.merge_from_file("/network/home/bhattdha/detectron2/configs/COCO-Detection/faster_rcnn_R_26_FPN_3x.yaml")
-cfg.merge_from_file("/network/home/bhattdha/detectron2/configs/COCO-Detection/faster_rcnn_X_101_32x8d_FPN_deform_conv_3x.yaml")
+cfg.merge_from_file("/network/home/bhattdha/detectron2/configs/COCO-Detection/faster_rcnn_R_50_C4_3x_dishank.yaml")
 cfg.DATASETS.TRAIN = ("kitti/train",)
 cfg.DATASETS.TEST = ()   # no metrics implemented for this dataset
-cfg.DATALOADER.NUM_WORKERS = 2
-# cfg.MODEL.WEIGHTS = "detectron2://COCO-Detection/faster_rcnn_R_50_FPN_3x/137849458/model_final_280758.pkl"  # initialize from model zoo
+cfg.DATALOADER.NUM_WORKERS = 0
+cfg.CUSTOM_OPTIONS.STRUCTURED_EDGE_RESPONSE = True
+cfg.MODEL.WEIGHTS = "https://dl.fbaipublicfiles.com/detectron2/COCO-Detection/faster_rcnn_R_50_C4_3x/137849393/model_final_f97cb7.pkl"  # initialize from model zoo
 # cfg.MODEL.WEIGHTS = "/network/tmp1/bhattdha/detectron2_kitti/resnet-26_FPN_3x_scratch/model_start.pth"
 # cfg.MODEL.WEIGHTS = "/network/tmp1/bhattdha/detectron2_kitti/model_0014999.pth"  # initialize fron deterministic model
-cfg.SOLVER.IMS_PER_BATCH = 1
+cfg.SOLVER.IMS_PER_BATCH = 8
 # cfg.SOLVER.BASE_LR = 0.015
-cfg.SOLVER.BASE_LR = 2e-4  
+cfg.SOLVER.BASE_LR = 1e-3  
 cfg.SOLVER.MAX_ITER =  250000  
 cfg.MODEL.ROI_HEADS.BATCH_SIZE_PER_IMAGE = 512   # faster, and good enough for this toy dataset
 cfg.MODEL.ROI_HEADS.NUM_CLASSES = len(class_list)  #  (kitti)
 cfg.OUTPUT_DIR = '/network/tmp1/bhattdha/detectron2_kitti/' + dir_name
 
-cfg.MODEL.RPN.IOU_THRESHOLDS = [0.00005, 0.5]
-cfg.MODEL.ROI_HEADS.IOU_THRESHOLDS = [0.00005, 0.5]
-cfg.MODEL.ROI_HEADS.IOU_LABELS = [0, -1, 1]
-cfg.MODEL.ROI_HEADS.POSITIVE_FRACTION = 0.99
-cfg.MODEL.ROI_HEADS.PROPOSAL_APPEND_GT = False
+# cfg.MODEL.RPN.IOU_THRESHOLDS = [0.00005, 0.5]
+# cfg.MODEL.ROI_HEADS.IOU_THRESHOLDS = [0.00005, 0.5]
+# cfg.MODEL.ROI_HEADS.IOU_LABELS = [0, -1, 1]
+# cfg.MODEL.ROI_HEADS.POSITIVE_FRACTION = 0.99
+# cfg.MODEL.ROI_HEADS.PROPOSAL_APPEND_GT = False
 
 if cfg.CUSTOM_OPTIONS.DETECTOR_TYPE is 'deterministic':
     ## has to be smooth l1 loss if detector is deterministc
