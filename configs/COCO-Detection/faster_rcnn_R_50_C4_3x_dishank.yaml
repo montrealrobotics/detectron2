@@ -1,0 +1,14 @@
+_BASE_: "../Base-RCNN-C4.yaml"
+MODEL:
+  WEIGHTS: "detectron2://ImageNetPretrained/MSRA/R-50.pkl"
+  MASK_ON: False
+  RESNETS:
+    DEPTH: 50
+  ROI_BOX_HEAD:
+    CLS_AGNOSTIC_BBOX_REG: False
+SOLVER:
+  STEPS: (210000, 250000)
+  MAX_ITER: 270000
+CUSTOM_OPTIONS:
+  DETECTOR_TYPE: 'deterministic'
+  LOSS_TYPE_REG: 'smooth_l1'
