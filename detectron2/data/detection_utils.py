@@ -10,6 +10,7 @@ import numpy as np
 import torch
 from fvcore.common.file_io import PathManager
 from PIL import Image
+import cv2
 
 from detectron2.structures import (
     BitMasks,
@@ -42,6 +43,7 @@ def read_image(file_name, format=None):
     Returns:
         image (np.ndarray): an HWC image
     """
+    
     with PathManager.open(file_name, "rb") as f:
         image = Image.open(f)
 
@@ -52,6 +54,63 @@ def read_image(file_name, format=None):
                 conversion_format = "RGB"
             image = image.convert(conversion_format)
         image = np.asarray(image)
+        if format == "BGR":
+            # flip channels if needed
+            image = image[:, :, ::-1]
+        # PIL squeezes out the channel dimension for "L", so make it HWC
+        if format == "L":
+            image = np.expand_dims(image, -1)
+
+        return image
+
+def read_edge_enhanced_image(file_name, format=None, model = None):
+    """
+    Read an image into the given format and find structured edges
+    to have edge enhanced image
+
+    Args:
+        file_name (str): image file path
+        format (str): one of the supported image modes in PIL, or "BGR"
+        model: structured edge detection model
+
+    Returns:
+        image (np.ndarray): an HWC image
+    """
+
+    assert format == 'BGR', "{} is unsupported image format!".format(format)
+    assert model is not None, "Please provide valid model for structured edge detection!"
+
+    with PathManager.open(file_name, "rb") as f:
+        image = Image.open(f)
+
+
+        if format is not None:
+            # PIL only supports RGB, so convert to RGB and flip channels over below
+            conversion_format = format
+            if format == "BGR":
+                conversion_format = "RGB"
+            image = image.convert(conversion_format)
+
+            ## let's do structured edge detection and enhance image
+            ## opencv function expects pixel values between 0 and 1
+            imgrgb = np.asarray(image) / 255
+
+            ## float type and running the edge detector
+            imgrgb = imgrgb.astype(np.float32)
+            imgedges = model.detectEdges(imgrgb)
+
+            ## once the edge is detected, we enhance the edges in the actual image
+            image = (imgrgb + imgedges[:,:,None]) 
+
+            ## clip the value to 1
+            image = np.clip(image, a_min = 0.0, a_max = 1.0)
+
+            ## bringing image between 0 and 255
+            image = image * 255
+
+            ## converting to uint 8
+            image = image.astype(np.uint8)
+
         if format == "BGR":
             # flip channels if needed
             image = image[:, :, ::-1]
