@@ -35,10 +35,16 @@ class FastRCNNConvFCHead(nn.Module):
         # fmt: off
         num_conv   = cfg.MODEL.ROI_BOX_HEAD.NUM_CONV
         conv_dim   = cfg.MODEL.ROI_BOX_HEAD.CONV_DIM
-        conv_dim_list = cfg.MODEL.ROI_BOX_HEAD.CONV_DIM_LIST
+        if hasattr(cfg.MODEL.ROI_BOX_HEAD, 'CONV_DIM_LIST'):
+            conv_dim_list = cfg.MODEL.ROI_BOX_HEAD.CONV_DIM_LIST
+        else: 
+            conv_dim_list = []
         num_fc     = cfg.MODEL.ROI_BOX_HEAD.NUM_FC
         fc_dim     = cfg.MODEL.ROI_BOX_HEAD.FC_DIM
-        fc_dim_list = cfg.MODEL.ROI_BOX_HEAD.FC_DIM_LIST
+        if hasattr(cfg.MODEL.ROI_BOX_HEAD, 'FC_DIM_LIST'):
+            fc_dim_list = cfg.MODEL.ROI_BOX_HEAD.FC_DIM_LIST
+        else:
+            fc_dim_list = []
         norm       = cfg.MODEL.ROI_BOX_HEAD.NORM
         # fmt: on
         assert num_conv + num_fc > 0
