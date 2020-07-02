@@ -11,4 +11,3 @@ SOLVER:
   MAX_ITER: 270000
 CUSTOM_OPTIONS:
   DETECTOR_TYPE: 'deterministic'
-  LOSS_TYPE_REG: 'smooth_l1'
