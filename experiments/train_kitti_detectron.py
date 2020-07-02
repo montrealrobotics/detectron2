@@ -36,7 +36,7 @@ def get_kitti_dicts(root_dir, data_label):
     test_images = len(image_names) - train_images
     if data_label == 'train':
         image_names = image_names[:train_images]
-        image_names = image_names[0:10]
+        # image_names = image_names[0:10]
     if data_label == 'test':
         image_names = image_names[-test_images:]
     # print(image_names)
@@ -117,7 +117,7 @@ from detectron2.config import get_cfg
 
 cfg = get_cfg()
 # cfg.merge_from_file("/network/home/bhattdha/detectron2/configs/COCO-Detection/faster_rcnn_R_26_FPN_3x.yaml")
-cfg.merge_from_file("/network/home/bhattdha/detectron2/configs/COCO-Detection/faster_rcnn_R_50_C4_3x_dishank.yaml")
+cfg.merge_from_file("/home/mila/b/bhattdha/detectron2/configs/COCO-Detection/faster_rcnn_R_50_C4_3x_dishank.yaml")
 cfg.DATASETS.TRAIN = ("kitti/train",)
 cfg.DATASETS.TEST = ()   # no metrics implemented for this dataset
 cfg.DATALOADER.NUM_WORKERS = 0
@@ -138,6 +138,7 @@ cfg.OUTPUT_DIR = '/network/tmp1/bhattdha/detectron2_kitti/' + dir_name
 # cfg.MODEL.ROI_HEADS.IOU_LABELS = [0, -1, 1]
 # cfg.MODEL.ROI_HEADS.POSITIVE_FRACTION = 0.99
 # cfg.MODEL.ROI_HEADS.PROPOSAL_APPEND_GT = False
+cfg.CUSTOM_OPTIONS.DETECTOR_TYPE = 'probabilistic'
 
 if cfg.CUSTOM_OPTIONS.DETECTOR_TYPE is 'deterministic':
     ## has to be smooth l1 loss if detector is deterministc
