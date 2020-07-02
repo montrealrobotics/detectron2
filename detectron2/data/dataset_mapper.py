@@ -52,7 +52,7 @@ class DatasetMapper:
 
         ## if we are supposed to use structured edge response, let's load the model to be used.
         if self.structured_edge_response:
-            model_path = '/network/home/bhattdha/detectron2/detectron2/structured_edge_response_model/model.yml'
+            model_path = '/home/mila/b/bhattdha/detectron2/detectron2/structured_edge_response_model/model.yml'
             self.edge_model = cv2.ximgproc.createStructuredEdgeDetection(model_path)
 
         # fmt: on
