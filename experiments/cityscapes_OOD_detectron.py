@@ -36,8 +36,8 @@ import glob
 
 cfg = get_cfg()
 cfg_rpn = get_cfg()
-cfg_rpn.merge_from_file("/network/home/bhattdha/detectron2/configs/COCO-InstanceSegmentation/mask_rcnn_X_101_32x8d_FPN_3x.yaml")
-cfg_rpn.MODEL.WEIGHTS = "/network/home/bhattdha/model_final_2d9806.pkl"
+cfg_rpn.merge_from_file("/home/mila/b/bhattdha/detectron2/configs/COCO-InstanceSegmentation/mask_rcnn_X_101_32x8d_FPN_3x.yaml")
+cfg_rpn.MODEL.WEIGHTS = "/home/mila/b/bhattdha/model_final_2d9806.pkl"
 cfg_rpn.MODEL.META_ARCHITECTURE = "ProposalNetwork"
 # cfg.merge_from_file("/network/home/bhattdha/detectron2/configs/COCO-Detection/faster_rcnn_X_101_32x8d_FPN_deform_conv_3x.yaml")
 
