@@ -77,6 +77,7 @@ class COCOEvaluator(DatasetEvaluator):
             tuple[str]: tasks that can be evaluated under the given configuration.
         """
         tasks = ("bbox",)
+
         if cfg.MODEL.MASK_ON:
             tasks = tasks + ("segm",)
         if cfg.MODEL.KEYPOINT_ON:
@@ -117,6 +118,7 @@ class COCOEvaluator(DatasetEvaluator):
                     instances.remove("pred_masks")
 
                 prediction["instances"] = instances_to_json(instances, input["image_id"])
+
             if "proposals" in output:
                 prediction["proposals"] = output["proposals"].to(self._cpu_device)
             self._predictions.append(prediction)
@@ -126,7 +128,6 @@ class COCOEvaluator(DatasetEvaluator):
             comm.synchronize()
             self._predictions = comm.gather(self._predictions, dst=0)
             self._predictions = list(itertools.chain(*self._predictions))
-
             if not comm.is_main_process():
                 return {}
 
@@ -154,8 +155,8 @@ class COCOEvaluator(DatasetEvaluator):
         Fill self._results with the metrics of the tasks.
         """
         self._logger.info("Preparing results for COCO format ...")
-        self._coco_results = list(itertools.chain(*[x["instances"] for x in self._predictions]))
 
+        self._coco_results = list(itertools.chain(*[x["instances"] for x in self._predictions]))
         # unmap the category ids for COCO
         if hasattr(self._metadata, "thing_dataset_id_to_contiguous_id"):
             reverse_id_mapping = {
@@ -263,6 +264,7 @@ class COCOEvaluator(DatasetEvaluator):
 
         if class_names is None or len(class_names) <= 1:
             return results
+        
         # Compute per-category AP
         # from https://github.com/facebookresearch/Detectron/blob/a6a835f5b8208c45d0dce217ce9bbda915f44df7/detectron/datasets/json_dataset_evaluator.py#L222-L252 # noqa
         precisions = coco_eval.eval["precision"]
@@ -306,6 +308,11 @@ def instances_to_json(instances, img_id):
     scores = instances.scores.tolist()
     classes = instances.pred_classes.tolist()
 
+    has_sigma = instances.has("pred_sigma")
+
+    if has_sigma:
+        pred_sigma = instances.pred_sigma.numpy().tolist()
+
     has_mask = instances.has("pred_masks_rle")
     if has_mask:
         rles = instances.pred_masks_rle
@@ -324,6 +331,10 @@ def instances_to_json(instances, img_id):
         }
         if has_mask:
             result["segmentation"] = rles[k]
+
+        if has_sigma:
+            result['sigma'] = pred_sigma[k]
+
         if has_keypoints:
             # In COCO annotations,
             # keypoints coordinates are pixel indices.
@@ -461,6 +472,8 @@ def _evaluate_predictions_on_coco(coco_gt, coco_results, iou_type, kpt_oks_sigma
         # We remove the bbox field to let mask AP use mask area.
         for c in coco_results:
             c.pop("bbox", None)
+
+    import ipdb; ipdb.set_trace()
 
     coco_dt = coco_gt.loadRes(coco_results)
     coco_eval = COCOeval(coco_gt, coco_dt, iou_type)
