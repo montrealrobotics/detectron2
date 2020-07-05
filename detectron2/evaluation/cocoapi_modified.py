@@ -31,8 +31,10 @@ def calc_mahadist(dt, gt, dt_sd):
         for j, g in enumerate(gt):
 
             ## precision matrix
+            d_xyxy = np.array([d[0], d[1], d[0]+d[2], d[1]+d[3]])
+            g_xyxy = np.array([g[0], g[1], g[0]+g[2], g[1]+g[3]])
             precision_mat = np.diag(1.0 / dt_sd[i]**2) 
-            mahadists[i, j] = np.matmul(np.matmul((d - g), precision_mat), (d - g))
+            mahadists[i, j] = np.matmul(np.matmul((d_xyxy - g_xyxy), precision_mat), (d_xyxy - g_xyxy))
 
     return mahadists
 
