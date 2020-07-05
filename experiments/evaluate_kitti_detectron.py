@@ -40,7 +40,7 @@ def get_kitti_dicts(root_dir, data_label):
         # import ipdb; ipdb.set_trace()
         image_names = image_names[-test_images:]
     # print(image_names)
-    image_names = image_names[0:50]
+    # image_names = image_names[0:100]
         
     record = {}
     dataset_dicts = []

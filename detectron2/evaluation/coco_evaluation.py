@@ -9,11 +9,12 @@ import numpy as np
 import os
 import pickle
 from collections import OrderedDict
+
 import pycocotools.mask as mask_util
 import torch
 from fvcore.common.file_io import PathManager
 from pycocotools.coco import COCO
-from pycocotools.cocoeval import COCOeval
+
 from tabulate import tabulate
 
 import detectron2.utils.comm as comm
@@ -23,7 +24,8 @@ from detectron2.structures import Boxes, BoxMode, pairwise_iou
 from detectron2.utils.logger import create_small_table
 
 from .evaluator import DatasetEvaluator
-
+# from pycocotools.cocoeval import COCOeval
+from .cocoapi_modified import COCOeval
 
 class COCOEvaluator(DatasetEvaluator):
     """
@@ -78,6 +80,10 @@ class COCOEvaluator(DatasetEvaluator):
         """
         tasks = ("bbox",)
 
+        ## if our detector is probabilistic, we have to evalaute
+        ## with mean average mahalanobis precision
+        if cfg.CUSTOM_OPTIONS.DETECTOR_TYPE == 'probabilistic':
+            tasks = tasks + ("bbox_prob",)
         if cfg.MODEL.MASK_ON:
             tasks = tasks + ("segm",)
         if cfg.MODEL.KEYPOINT_ON:
@@ -248,6 +254,7 @@ class COCOEvaluator(DatasetEvaluator):
 
         metrics = {
             "bbox": ["AP", "AP50", "AP75", "APs", "APm", "APl"],
+            "bbox_prob": ["AP"],
             "segm": ["AP", "AP50", "AP75", "APs", "APm", "APl"],
             "keypoints": ["AP", "AP50", "AP75", "APm", "APl"],
         }[iou_type]
@@ -472,8 +479,6 @@ def _evaluate_predictions_on_coco(coco_gt, coco_results, iou_type, kpt_oks_sigma
         # We remove the bbox field to let mask AP use mask area.
         for c in coco_results:
             c.pop("bbox", None)
-
-    import ipdb; ipdb.set_trace()
 
     coco_dt = coco_gt.loadRes(coco_results)
     coco_eval = COCOeval(coco_gt, coco_dt, iou_type)
