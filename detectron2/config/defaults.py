@@ -589,5 +589,24 @@ _C.CUSTOM_OPTIONS.RICHARD_CURVE_LOW = 0
 _C.CUSTOM_OPTIONS.RICHARD_CURVE_HIGH = 50
 _C.CUSTOM_OPTIONS.RICHARD_CURVE_SHARP = 0.15
 
-## option if structured edge response should be considered or not
-_C.CUSTOM_OPTIONS.STRUCTURED_EDGE_RESPONSE = False
+## Option around input and structured edge response
+_C.STRUCTURED_EDGE_RESPONSE = CN()
+## do we want structured edge response?
+_C.STRUCTURED_EDGE_RESPONSE.ENABLE = True
+
+## types: ["BGR", "RGBEDGE", "EDGE", "GREY", "GREYEDGE", "RGBCONCATEDGE", "GREYCONCATEDGE"]
+## #channels: [3, 3, 1, 1, 1, 4, 2]
+_C.STRUCTURED_EDGE_RESPONSE.INPUT_TYPE = "GREY"
+_C.STRUCTURED_EDGE_RESPONSE.PIXEL_MEAN = CN({'BGR': [103.530, 116.280, 123.675],
+											 'RGBEDGE': [100.0, 100.0, 100.0],	
+											 'GREY': [114.495],
+											 'GREYEDGE': [100.0],
+											 'RGBCONCAREDGE': [103.530, 116.280, 123.675, 100.0],
+											 'GREYCONCATEDGE': [114.495, 100.0]})
+
+_C.STRUCTURED_EDGE_RESPONSE.PIXEL_STD = CN({'BGR': [1.0, 1.0, 1.0],
+											'RGBEDGE': [1.0, 1.0, 1.0],	
+											'GREY': [1.0],
+											'GREYEDGE': [1.0],
+											'RGBCONCAREDGE': [1.0, 1.0, 1.0, 1.0],
+											'GREYCONCATEDGE': [1.0, 1.0]})

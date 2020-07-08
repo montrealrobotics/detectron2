@@ -63,10 +63,9 @@ def read_image(file_name, format=None):
 
         return image
 
-def read_edge_enhanced_image(file_name, format=None, model = None):
+def read_custom_image(file_name, format=None, model = None, input_type = None):
     """
-    Read an image into the given format and find structured edges
-    to have edge enhanced image
+    Read an image into the given format and construct image with edge information
 
     Args:
         file_name (str): image file path
@@ -76,9 +75,12 @@ def read_edge_enhanced_image(file_name, format=None, model = None):
     Returns:
         image (np.ndarray): an HWC image
     """
+    input_types = ["RGBEDGE", "EDGE", "GREY", "GREYEDGE", "RGBCONCATEDGE", "GREYCONCATEDGE"]
 
     assert format == 'BGR', "{} is unsupported image format!".format(format)
     assert model is not None, "Please provide valid model for structured edge detection!"
+    assert input_type is not None, "Input can't be None."
+    assert input_type in input_types, "Invalid input type {}".format(format)
 
     with PathManager.open(file_name, "rb") as f:
         image = Image.open(f)
@@ -97,10 +99,27 @@ def read_edge_enhanced_image(file_name, format=None, model = None):
 
             ## float type and running the edge detector
             imgrgb = imgrgb.astype(np.float32)
-            imgedges = model.detectEdges(imgrgb)
+            imgedges = model.detectEdges(imgrgb)[:,:,None]
 
-            ## once the edge is detected, we enhance the edges in the actual image
-            image = (imgrgb + imgedges[:,:,None]) 
+            ## depending on the inputtype, we build the image. 
+            if input_type == "RGBEDGE":
+                ## HxWx3
+                image = (imgrgb / 2.0 + imgedges) 
+            if input_type == "EDGE":
+                ## HxWx1
+                image = imgedges
+            if input_type == "GREY":
+                ## HxWx1
+                image = np.mean(imgrgb, axis = 2)[:, :, None] 
+            if input_type == "GREYEDGE":
+                ## HxWx1
+                image = np.mean(imgrgb, axis = 2)[:, :, None]  / 2.0 + imgedges
+            if input_type == "RGBCONCATEDGE":
+                ## HxWx4
+                image = np.concatenate((imgrgb, imgedges), axis=2)
+            if input_type == "GREYCONCATEDGE":
+                ## HxWx2
+                image = np.concatenate((np.mean(imgrgb, axis = 2)[:, :, None], imgedges), axis = 2)
 
             ## clip the value to 1
             image = np.clip(image, a_min = 0.0, a_max = 1.0)
@@ -111,12 +130,6 @@ def read_edge_enhanced_image(file_name, format=None, model = None):
             ## converting to uint 8
             image = image.astype(np.uint8)
 
-        if format == "BGR":
-            # flip channels if needed
-            image = image[:, :, ::-1]
-        # PIL squeezes out the channel dimension for "L", so make it HWC
-        if format == "L":
-            image = np.expand_dims(image, -1)
         return image
 
 

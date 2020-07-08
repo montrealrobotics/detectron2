@@ -45,8 +45,9 @@ class DatasetMapper:
         self.keypoint_on    = cfg.MODEL.KEYPOINT_ON
         self.load_proposals = cfg.MODEL.LOAD_PROPOSALS
 
-        if hasattr(cfg.CUSTOM_OPTIONS, 'STRUCTURED_EDGE_RESPONSE'):
-            self.structured_edge_response = cfg.CUSTOM_OPTIONS.STRUCTURED_EDGE_RESPONSE
+
+        if hasattr(cfg, 'STRUCTURED_EDGE_RESPONSE'):
+            self.structured_edge_response = cfg.STRUCTURED_EDGE_RESPONSE.ENABLE
         else:
             self.structured_edge_response = False
 
@@ -54,6 +55,7 @@ class DatasetMapper:
         if self.structured_edge_response:
             model_path = '/home/mila/b/bhattdha/detectron2/detectron2/structured_edge_response_model/model.yml'
             self.edge_model = cv2.ximgproc.createStructuredEdgeDetection(model_path)
+            self.input_type = cfg.STRUCTURED_EDGE_RESPONSE.INPUT_TYPE
 
         # fmt: on
         if self.keypoint_on and is_train:
@@ -82,8 +84,8 @@ class DatasetMapper:
         dataset_dict = copy.deepcopy(dataset_dict)  # it will be modified by code below
         # USER: Write your own image loading if it's not from a file
 
-        if self.structured_edge_response:
-            image = utils.read_edge_enhanced_image(dataset_dict["file_name"], format=self.img_format, model = self.edge_model)
+        if self.structured_edge_response and self.input_type != 'BGR':
+            image = utils.read_custom_image(dataset_dict["file_name"], format=self.img_format, model = self.edge_model, input_type = self.input_type)
         else:
             image = utils.read_image(dataset_dict["file_name"], format=self.img_format)
         
