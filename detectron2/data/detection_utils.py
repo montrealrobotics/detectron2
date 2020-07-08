@@ -99,27 +99,27 @@ def read_custom_image(file_name, format=None, model = None, input_type = None):
 
             ## float type and running the edge detector
             imgrgb = imgrgb.astype(np.float32)
-            imgedges = model.detectEdges(imgrgb)[:,:,None]
+            imgedges = model.detectEdges(imgrgb)
 
             ## depending on the inputtype, we build the image. 
             if input_type == "RGBEDGE":
                 ## HxWx3
-                image = (imgrgb / 2.0 + imgedges) 
+                image = (imgrgb / 2.0 + imgedges[:, :, None]) 
             if input_type == "EDGE":
-                ## HxWx1
+                ## HxW
                 image = imgedges
             if input_type == "GREY":
-                ## HxWx1
-                image = np.mean(imgrgb, axis = 2)[:, :, None] 
+                ## HxW
+                image = np.mean(imgrgb, axis = 2)
             if input_type == "GREYEDGE":
-                ## HxWx1
-                image = np.mean(imgrgb, axis = 2)[:, :, None]  / 2.0 + imgedges
+                ## HxW
+                image = np.mean(imgrgb, axis = 2) / 2.0 + imgedges
             if input_type == "RGBCONCATEDGE":
                 ## HxWx4
-                image = np.concatenate((imgrgb, imgedges), axis=2)
+                image = np.concatenate((imgrgb, imgedges[:, :, None]), axis=2)
             if input_type == "GREYCONCATEDGE":
                 ## HxWx2
-                image = np.concatenate((np.mean(imgrgb, axis = 2)[:, :, None], imgedges), axis = 2)
+                image = np.concatenate((np.mean(imgrgb, axis = 2)[:, :, None], imgedges[:, :, None]), axis = 2)
 
             ## clip the value to 1
             image = np.clip(image, a_min = 0.0, a_max = 1.0)
@@ -127,7 +127,7 @@ def read_custom_image(file_name, format=None, model = None, input_type = None):
             ## bringing image between 0 and 255
             image = image * 255
 
-            ## converting to uint 8
+            ## converting to uint8
             image = image.astype(np.uint8)
 
         return image
