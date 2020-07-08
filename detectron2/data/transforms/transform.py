@@ -82,6 +82,9 @@ class ResizeTransform(Transform):
         interp_method = interp if interp is not None else self.interp
         pil_image = pil_image.resize((self.new_w, self.new_h), interp_method)
         ret = np.asarray(pil_image)
+        ## if it's a greyscale image, append 1 channel
+        if len(ret.shape) == 2:
+            ret = ret[:, :, None]
         return ret
 
     def apply_coords(self, coords):
