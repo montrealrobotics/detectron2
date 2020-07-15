@@ -64,14 +64,14 @@ from detectron2.engine import DefaultTrainer
 from detectron2.config import get_cfg
 
 cfg = get_cfg()
-# cfg.merge_from_file("/network/home/bhattdha/detectron2/configs/COCO-Detection/faster_rcnn_R_101_FPN_3x.yaml")
-cfg.merge_from_file("/network/home/bhattdha/detectron2/configs/COCO-InstanceSegmentation/mask_rcnn_R_101_FPN_3x_1_class.yaml")
+cfg.merge_from_file("/home/mila/b/bhattdha/detectron2/configs/COCO-InstanceSegmentation/mask_rcnn_R_101_FPN_3x.yaml")
+# cfg.merge_from_file("/network/home/bhattdha/detectron2/configs/COCO-InstanceSegmentation/mask_rcnn_R_101_FPN_3x_1_class.yaml")
 # cfg.merge_from_file("/network/home/bhattdha/detectron2/configs/COCO-Detection/faster_rcnn_X_101_32x8d_FPN_deform_conv_3x.yaml")
 cfg.DATASETS.TRAIN = ("coco_1_class",)
 cfg.DATASETS.TEST = ()   # no metrics implemented for this dataset
 cfg.DATALOADER.NUM_WORKERS = 2
 # cfg.MODEL.WEIGHTS = "detectron2://COCO-Detection/faster_rcnn_R_50_FPN_3x/137849458/model_final_280758.pkl"  # initialize from model zoo
-cfg.MODEL.WEIGHTS = "/network/tmp1/bhattdha/detectron2_coco/coco_1_class_enhanced_edge/model_start.pth"
+cfg.MODEL.WEIGHTS = "/home/mila/b/bhattdha/model_final_a3ec72.pkl"
 # cfg.MODEL.WEIGHTS = "/network/tmp1/bhattdha/detectron2_kitti/model_0014999.pth"  # initialize fron deterministic model
 cfg.SOLVER.IMS_PER_BATCH = 5
 # cfg.SOLVER.BASE_LR = 0.015
@@ -80,10 +80,14 @@ cfg.SOLVER.MAX_ITER =  250000
 cfg.MODEL.ROI_HEADS.BATCH_SIZE_PER_IMAGE = 1024
 cfg.MODEL.ROI_HEADS.NUM_CLASSES = len(class_list)  #  (kitti)
 cfg.OUTPUT_DIR = '/network/tmp1/bhattdha/detectron2_coco/' + dir_name
-cfg.CUSTOM_OPTIONS.DETECTOR_TYPE = 'deterministic'
-cfg.CUSTOM_OPTIONS.STRUCTURED_EDGE_RESPONSE = True
+# cfg.CUSTOM_OPTIONS.DETECTOR_TYPE = 'deterministic'
+# cfg.CUSTOM_OPTIONS.STRUCTURED_EDGE_RESPONSE = True
 
 cfg.MODEL.ROI_HEADS.POSITIVE_FRACTION = 0.8
+
+if cfg.STRUCTURED_EDGE_RESPONSE.ENABLE:
+    cfg.MODEL.PIXEL_MEAN = cfg.STRUCTURED_EDGE_RESPONSE.PIXEL_MEAN[cfg.STRUCTURED_EDGE_RESPONSE.INPUT_TYPE]
+    cfg.MODEL.PIXEL_STD = cfg.STRUCTURED_EDGE_RESPONSE.PIXEL_STD[cfg.STRUCTURED_EDGE_RESPONSE.INPUT_TYPE]
 
 if cfg.CUSTOM_OPTIONS.DETECTOR_TYPE is 'deterministic':
     ## has to be smooth l1 loss if detector is deterministc
