@@ -39,7 +39,8 @@ cfg = get_cfg()
 # cfg_dict = torch.load('/network/tmp1/bhattdha/detectron2_kitti/resnet-50_FPN/resnet-50_FPN_cfg.final')
 # cfg_dict = torch.load('/network/tmp1/bhattdha/detectron2_coco/coco_1_class_deterministic_maskrcnn/coco_1_class_deterministic_maskrcnn_cfg.final')
 # cfg_dict = torch.load('/network/tmp1/bhattdha/detectron2_coco/coco_1_class_deterministic/coco_1_class_deterministic_cfg.final')
-cfg_dict = torch.load('/network/tmp1/bhattdha/detectron2_coco/coco_1_class_more_layers_stage_2/coco_1_class_more_layers_stage_2_cfg.final')
+# cfg_dict = torch.load('/network/tmp1/bhattdha/detectron2_coco/coco_1_class_more_layers_stage_2/coco_1_class_more_layers_stage_2_cfg.final')
+cfg_dict = torch.load('/network/tmp1/bhattdha/detectron2_coco/coco_1_class_rgbedge/coco_1_class_rgbedge_cfg.final')
 cfg = cfg_dict['cfg']
 
 # cfg.DATASETS.TRAIN = ("kitti/train",)
@@ -48,19 +49,22 @@ cfg.DATASETS.TEST = ('coco_2017_val',)   # no metrics implemented for this datas
 
 cfg.MODEL.ROI_HEADS.NUM_CLASSES = len(class_list)  #  (kitti)
 
-cfg.OUTPUT_DIR = '/network/tmp1/bhattdha/detectron2_coco/coco_1_class_more_layers_stage_2'
-cfg.MODEL.WEIGHTS = os.path.join(cfg.OUTPUT_DIR, "model_0099999.pth")
+cfg.OUTPUT_DIR = '/network/tmp1/bhattdha/detectron2_coco/coco_1_class_rgbedge/'
+cfg.MODEL.WEIGHTS = os.path.join(cfg.OUTPUT_DIR, "model_0079999.pth")
 cfg.MODEL.ROI_HEADS.SCORE_THRESH_TEST = 0.1   # set the testing threshold for this model
 cfg.MODEL.RPN.POST_NMS_TOPK_TEST = 3000
 cfg.MODEL.MASK_ON = False
 predictor = DefaultPredictor(cfg)
 
 
-all_image_paths = glob.glob('/network/home/bhattdha/tensorflow_datasets/downloads/extracted/ZIP.dhbw-stuttgar.de_sgehrig_lostAndF_leftImg8MH9mACAjq1l9MJljuUmQ9bmo5XNe5ynDKSZHpm6fKxg.zip/leftImg8bit/train/*/*.png')
+# all_image_paths = glob.glob('/home/mila/b/bhattdha/tensorflow_datasets/downloads/extracted/ZIP.dhbw-stuttgar.de_sgehrig_lostAndF_leftImg8MH9mACAjq1l9MJljuUmQ9bmo5XNe5ynDKSZHpm6fKxg.zip/leftImg8bit/train/*/*.png')
+all_image_paths = glob.glob('/network/tmp1/bhattdha/denso_dataset/raw_images/*.png')
+
 for ind, image_path in enumerate(all_image_paths):
+    image_name = os.path.basename(image_path)
     print("On image: ", image_path)
     im = cv2.imread(image_path)
-    outputs = predictor(im)
+    outputs = predictor(image_path)
     v = Visualizer(im[:, :, ::-1],
                    metadata=coco_1_class_metadata, 
                    scale=1.0, 
@@ -68,5 +72,9 @@ for ind, image_path in enumerate(all_image_paths):
     )
 
     v = v.draw_instance_predictions(outputs["instances"].to("cpu"))
-    cv2.imwrite('/network/tmp1/bhattdha/detectron2_coco/coco_1_class_more_layers_stage_2/laf_out/' + str(ind).zfill(6) + '.png', v.get_image()[:, :, ::-1]) 
+    im_new = np.ones((im.shape[0]*2, im.shape[1], im.shape[2]), dtype='uint8')
+    im_new[0:im.shape[0], :,:] = im
+    im_new[im.shape[0]:2*im.shape[0], :,:] = v.get_image()[:, :, ::-1]
+
+    cv2.imwrite('/network/tmp1/bhattdha/denso_dataset/coco_1_class_rgbedge_original_image/' + image_name, im_new) #v.get_image()[:, :, ::-1]) 
 

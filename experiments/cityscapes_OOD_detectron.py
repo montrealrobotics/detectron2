@@ -37,8 +37,13 @@ import glob
 cfg = get_cfg()
 cfg_rpn = get_cfg()
 cfg_rpn.merge_from_file("/home/mila/b/bhattdha/detectron2/configs/COCO-InstanceSegmentation/mask_rcnn_X_101_32x8d_FPN_3x.yaml")
-cfg_rpn.MODEL.WEIGHTS = "/home/mila/b/bhattdha/model_final_a3ec72.pkl"
+cfg_rpn.MODEL.WEIGHTS = "/home/mila/b/bhattdha/model_final_2d9806.pkl"
 cfg_rpn.MODEL.META_ARCHITECTURE = "ProposalNetwork"
+# cfg_rpn_final = torch.load('/network/tmp1/bhattdha/detectron2_coco/coco_1_class_greyedge/coco_1_class_greyedge_cfg.final')['cfg']
+# cfg_rpn_final.DATASETS.TEST = cfg_rpn.DATASETS.TEST
+# cfg_rpn_final.MODEL.META_ARCHITECTURE = "ProposalNetwork"
+# cfg_rpn_final.MODEL.WEIGHTS = "/network/tmp1/bhattdha/detectron2_coco/coco_1_class_greyedge/model_0039999.pth"
+# cfg_rpn = cfg_rpn_final
 # cfg.merge_from_file("/network/home/bhattdha/detectron2/configs/COCO-Detection/faster_rcnn_X_101_32x8d_FPN_deform_conv_3x.yaml")
 
 # loading config used during train time
@@ -67,7 +72,7 @@ if cfg.CUSTOM_OPTIONS.DETECTOR_TYPE is 'deterministic':
 thresh_dict = np.load('/home/mila/b/bhattdha/detectron2/generative_classifier/maha_thresh_cityscapes.npy',allow_pickle = True)[()]
 means = thresh_dict['gaussian_stats']['means']
 covars = thresh_dict['gaussian_stats']['covars']
-maha_dist_thresh = thresh_dict['maha_thresh'][90] ## threshold for 95% accuracy on validation accuracy
+maha_dist_thresh = thresh_dict['maha_thresh'][80] ## threshold for 95% accuracy on validation accuracy
 predictor = DefaultPredictor(cfg)
 rpn_pred = DefaultPredictor(cfg_rpn)
 from detectron2.utils.visualizer import ColorMode
@@ -130,12 +135,12 @@ for ind, image_path in enumerate(all_image_paths):
     im = cv2.imread(image_path)
     ## here comes the OOD detection(finger crossed)
     ## full model execution
-    final_output = predictor(im)
+    final_output = predictor(image_path)
 
     """
     let's get the region proposals from coco-RPN
     """
-    coco_rpn_out = rpn_pred(im)
+    coco_rpn_out = rpn_pred(image_path)
     coco_prop_rpn, coco_prop_rpn_processed = coco_rpn_out['proposals'], coco_rpn_out['processed_results']
 
     """
@@ -177,7 +182,7 @@ for ind, image_path in enumerate(all_image_paths):
 
     ### 5. Going through RoI heads, imp stuff coming in! ###
     features_list = [features[f] for f in predictor.model.roi_heads.in_features]
-    box_features = predictor.model.roi_heads.box_pooler(features_list, [x.proposal_boxes for x in proposals])
+    box_features = predictor.model.roi_heads.box_pooler(features_list, [x.proposal_boxes for x in coco_prop_rpn])
     box_features = predictor.model.roi_heads.box_head(box_features)
 
     ### 6. Finding OODs now that we have embeddings ###
@@ -208,8 +213,8 @@ for ind, image_path in enumerate(all_image_paths):
     im_post_detection = v.get_image()[:, :, ::-1]
     
     
-    boxes_out = processed_results[0]['proposals'].get('proposal_boxes').tensor.clone()
-    boxes_scores = torch.sigmoid(processed_results[0]['proposals'].get('objectness_logits').clone()) 
+    boxes_out = coco_prop_rpn_processed[0]['proposals'].get('proposal_boxes').tensor.clone()
+    boxes_scores = torch.sigmoid(coco_prop_rpn_processed[0]['proposals'].get('objectness_logits').clone()) 
     boxes_out = boxes_out[ood_indices, :]  
     boxes_scores = boxes_scores[ood_indices]
     boxes_after_nms_inds = torchvision.ops.nms(boxes_out, boxes_scores, 0.5)
@@ -243,6 +248,6 @@ for ind, image_path in enumerate(all_image_paths):
 
     im_new[im.shape[0]:2*im.shape[0], :,:] = im        
 
-    cv2.imwrite('/network/tmp1/bhattdha/denso_dataset/ood_outputs/' + str(ind).zfill(6) + '.png', im_new) 
+    cv2.imwrite('/network/tmp1/bhattdha/denso_dataset/ood_output_diff_proposal_network/' + str(ind).zfill(6) + '.png', im_new) 
     # import ipdb; ipdb.set_trace()
 import ipdb; ipdb.set_trace()
