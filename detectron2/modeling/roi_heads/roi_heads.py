@@ -9,6 +9,7 @@ from detectron2.layers import ShapeSpec
 from detectron2.structures import Boxes, Instances, pairwise_iou
 from detectron2.utils.events import get_event_storage
 from detectron2.utils.registry import Registry
+from detectron2.layers import cat
 
 from ..backbone.resnet import BottleneckBlock, make_stage
 from ..box_regression import Box2BoxTransform, Box2BoxXYXYTransform
@@ -483,6 +484,7 @@ class StandardROIHeads(ROIHeads):
         self.image_count = 0
         self.bbox_features = None
         self.bbox_labels = None
+        self.corrupt_bg = cfg.CUSTOM_OPTIONS.CORRUPT_BG
 
     def _init_box_head(self, cfg):
         # fmt: off
@@ -633,9 +635,11 @@ class StandardROIHeads(ROIHeads):
         """
         box_features = self.box_pooler(features, [x.proposal_boxes for x in proposals])
 
+        if self.training and self.corrupt_bg:
+            box_features = self.corrupt_bg_representation(box_features, proposals)
+
         # print(box_features.shape)
         box_features = self.box_head(box_features)
-
 
         '''
         Storing box features and labels
@@ -778,3 +782,19 @@ class StandardROIHeads(ROIHeads):
             keypoint_logits = self.keypoint_head(keypoint_features)
             keypoint_rcnn_inference(keypoint_logits, instances)
             return instances
+
+    def corrupt_bg_representation(self, box_features, proposals):
+
+        """
+            Corrupt the background representations
+            As background can be anything
+        """
+
+        gt_classes = cat([p.gt_classes for p in proposals], dim=0)
+        bg_class_inds = torch.where(gt_classes == gt_classes.max())
+
+        ## we will only corrupt 50% of the background to make it more diverse
+        inds = torch.randperm(int(bg_class_inds[0].shape[0]*0.50))
+        box_features[bg_class_inds[0][inds]] = box_features[bg_class_inds[0][inds]] + torch.normal(0, 5, size = box_features[bg_class_inds[0][inds]].size(), device = box_features.device)
+        return box_features
+
