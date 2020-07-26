@@ -589,6 +589,12 @@ _C.CUSTOM_OPTIONS.RICHARD_CURVE_LOW = 0
 _C.CUSTOM_OPTIONS.RICHARD_CURVE_HIGH = 50
 _C.CUSTOM_OPTIONS.RICHARD_CURVE_SHARP = 0.15
 
+## parameters for RPN loss
+_C.CUSTOM_OPTIONS.RPN_FORGROUND_LOSS_ONLY = True
+
+## whether we should corrupt background in stage-2 or not
+_C.CUSTOM_OPTIONS.CORRUPT_BG = True
+
 ## Option around input and structured edge response
 _C.STRUCTURED_EDGE_RESPONSE = CN()
 ## do we want structured edge response?
@@ -596,7 +602,7 @@ _C.STRUCTURED_EDGE_RESPONSE.ENABLE = True
 
 ## types: ["BGR", "RGBEDGE", "EDGE", "GREY", "GREYEDGE", "RGBCONCATEDGE", "GREYCONCATEDGE"]
 ## #channels: [3, 3, 1, 1, 1, 4, 2]
-_C.STRUCTURED_EDGE_RESPONSE.INPUT_TYPE = "GREYEDGE"
+_C.STRUCTURED_EDGE_RESPONSE.INPUT_TYPE = "RGBEDGE"
 _C.STRUCTURED_EDGE_RESPONSE.PIXEL_MEAN = CN({'BGR': [103.530, 116.280, 123.675],
 											 'RGBEDGE': [100.0, 100.0, 100.0],	
 											 'GREY': [114.495],
