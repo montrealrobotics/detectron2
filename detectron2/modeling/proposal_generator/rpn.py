@@ -99,6 +99,7 @@ class RPN(nn.Module):
         self.positive_fraction       = cfg.MODEL.RPN.POSITIVE_FRACTION
         self.smooth_l1_beta          = cfg.MODEL.RPN.SMOOTH_L1_BETA
         self.loss_weight             = cfg.MODEL.RPN.LOSS_WEIGHT
+        self.fg_only                 = cfg.CUSTOM_OPTIONS.RPN_FORGROUND_LOSS_ONLY
         # fmt: on
 
         # Map from self.training state to train/test settings
@@ -155,6 +156,7 @@ class RPN(nn.Module):
             self.boundary_threshold,
             gt_boxes,
             self.smooth_l1_beta,
+            self.fg_only,
         )
 
         if self.training:

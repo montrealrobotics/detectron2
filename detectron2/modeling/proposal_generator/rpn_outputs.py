@@ -156,6 +156,7 @@ def rpn_losses(
     pred_objectness_logits,
     pred_anchor_deltas,
     smooth_l1_beta,
+    fg_only,
 ):
     """
     Args:
@@ -171,6 +172,8 @@ def rpn_losses(
         smooth_l1_beta (float): The transition point between L1 and L2 loss in
             the smooth L1 loss function. When set to 0, the loss becomes L1. When
             set to +inf, the loss becomes constant 0.
+        fg_only (bool): This determines if cross entropy loss is only applied to
+            foreground regions or both, foreground and background
 
     Returns:
         objectness_loss, localization_loss, both unnormalized (summed over samples).
@@ -180,12 +183,21 @@ def rpn_losses(
         pred_anchor_deltas[pos_masks], gt_anchor_deltas[pos_masks], smooth_l1_beta, reduction="sum"
     )
 
-    valid_masks = gt_objectness_logits >= 0
-    objectness_loss = F.binary_cross_entropy_with_logits(
-        pred_objectness_logits[valid_masks],
-        gt_objectness_logits[valid_masks].to(torch.float32),
-        reduction="sum",
-    )
+    if fg_only:
+        valid_masks = gt_objectness_logits == 1
+        objectness_loss = F.binary_cross_entropy_with_logits(
+            pred_objectness_logits[valid_masks],
+            gt_objectness_logits[valid_masks].to(torch.float32),
+            reduction="sum",
+        )
+    else:
+        valid_masks = gt_objectness_logits >= 0
+        objectness_loss = F.binary_cross_entropy_with_logits(
+            pred_objectness_logits[valid_masks],
+            gt_objectness_logits[valid_masks].to(torch.float32),
+            reduction="sum",
+        )
+
     return objectness_loss, localization_loss
 
 
@@ -203,6 +215,7 @@ class RPNOutputs(object):
         boundary_threshold=0,
         gt_boxes=None,
         smooth_l1_beta=0.0,
+        fg_only = False,
     ):
         """
         Args:
@@ -245,6 +258,7 @@ class RPNOutputs(object):
         self.image_sizes = images.image_sizes
         self.boundary_threshold = boundary_threshold
         self.smooth_l1_beta = smooth_l1_beta
+        self.fg_only = fg_only
 
     def _get_ground_truth(self):
         """
@@ -382,6 +396,7 @@ class RPNOutputs(object):
             pred_objectness_logits,
             pred_anchor_deltas,
             self.smooth_l1_beta,
+            self.fg_only,
         )
         normalizer = 1.0 / (self.batch_size_per_image * self.num_images)
         loss_cls = objectness_loss * normalizer  # cls: classification loss
