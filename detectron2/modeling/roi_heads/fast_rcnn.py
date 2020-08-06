@@ -13,6 +13,8 @@ from detectron2.utils.events import get_event_storage
 
 logger = logging.getLogger(__name__)
 
+curr_iteration = 0
+
 """
 Shape shorthand in this module:
 
@@ -132,6 +134,20 @@ def fast_rcnn_inference_single_image(
     result.pred_classes = filter_inds[:, 1]
     return result, filter_inds[:, 0]
 
+def getMahaThreshold(prob_val):
+    """
+        Here, we get probability thresholds,
+        let's find corresponding mahalanobis distance
+    """
+    from scipy.stats import chi2
+
+    ## degrees of freedom, we have bounding box with 4 coordinates, hence 4
+    df = 4 
+
+    ## the thresholds of mahalanobis distance will be stored here!
+    mahadist_thresh = chi2.ppf(prob_val, df)
+
+    return mahadist_thresh
 
 # def fast_rcnn_inference(boxes, scores, image_shapes, score_thresh, nms_thresh, topk_per_image):
 #     """
@@ -212,14 +228,16 @@ def fast_rcnn_inference_single_image(
 #     result.pred_classes = filter_inds[:, 1]
 #     return result, filter_inds[:, 0]
 
-
+curr_iteration = 0
+curr_weight_index = 0
 class FastRCNNOutputs(object):
     """
     A class that stores information about outputs of a Fast R-CNN head.
     """
 
+
     def __init__(
-        self, box2box_transform, pred_class_logits, pred_proposal_deltas, pred_proposal_uncertain, proposals, smooth_l1_beta, loss_type
+        self, box2box_transform, pred_class_logits, pred_proposal_deltas, pred_proposal_uncertain, proposals, smooth_l1_beta, loss_type, total_iterations
     ):
         """
         Args:
@@ -242,7 +260,7 @@ class FastRCNNOutputs(object):
                 the smooth L1 loss function. When set to 0, the loss becomes L1. When
                 set to +inf, the loss becomes constant 0.
             loss_type (string): determines what type of loss to apply
-                could be ['smooth_l1', 'loss_att', 'cal_loss']
+                could be ['smooth_l1', 'loss_att', 'cal_loss', 'mahalanobis_attenuation']
         """
         self.box2box_transform = box2box_transform
         self.num_preds_per_image = [len(p) for p in proposals]
@@ -256,7 +274,13 @@ class FastRCNNOutputs(object):
         self.proposals = box_type.cat([p.proposal_boxes for p in proposals])
         assert not self.proposals.tensor.requires_grad, "Proposals should not require gradients!"
         self.image_shapes = [x.image_size for x in proposals]
-
+        self.total_iterations = total_iterations
+        self.annealing_weights = np.arange(0.0, 1.05, 0.05)
+        global curr_iteration
+        curr_iteration = curr_iteration + 1 
+        self.curr_iteration = curr_iteration
+        self.curr_weight_index = 0
+        self.increment_val = int(self.total_iterations / (len(list(self.annealing_weights))))
         # The following fields should exist only when training.
         if proposals[0].has("gt_boxes"):
             self.gt_boxes = box_type.cat([p.gt_boxes for p in proposals])
@@ -340,6 +364,69 @@ class FastRCNNOutputs(object):
 
         return loss_cal_final
 
+    def mahalanobis_loss_attenuation(self):
+        """
+        Loss attenuation with Mahalanobis bound for calibreated uncertainty estiamtion
+
+        Returns:
+            scalar Tensor
+        """
+
+        ## weight annealing scheme
+        curr_weight_index = np.min([int(self.curr_iteration / self.increment_val), len(self.annealing_weights) - 1])
+        annealing_weight = self.annealing_weights[curr_weight_index]
+        if annealing_weight > 1.0:
+            annealing_weight = 1.0
+        print("Annealing weight is: ", annealing_weight)
+        gt_proposal_deltas = self.box2box_transform.get_deltas(
+            self.proposals.tensor, self.gt_boxes.tensor
+        )
+        box_dim = gt_proposal_deltas.size(1)  # 4 or 5
+        cls_agnostic_bbox_reg = self.pred_proposal_deltas.size(1) == box_dim
+        device = self.pred_proposal_deltas.device
+
+        bg_class_ind = self.pred_class_logits.shape[1] - 1
+
+        # Box delta loss is only computed between the prediction for the gt class k
+        # (if 0 <= k < bg_class_ind) and the target; there is no loss defined on predictions
+        # for non-gt classes and background.
+        # Empty fg_inds produces a valid loss of zero as long as the size_average
+        # arg to smooth_l1_loss is False (otherwise it uses torch.mean internally
+        # and would produce a nan loss).
+        fg_inds = torch.nonzero((self.gt_classes >= 0) & (self.gt_classes < bg_class_ind)).squeeze(
+            1
+        )
+        if cls_agnostic_bbox_reg:
+            # pred_proposal_deltas only corresponds to foreground class for agnostic
+            gt_class_cols = torch.arange(box_dim, device=device)
+        else:
+            fg_gt_classes = self.gt_classes[fg_inds]
+            # pred_proposal_deltas for class k are located in columns [b * k : b * k + b],
+            # where b is the dimension of box representation (4 or 5)
+            # Note that compared to Detectron1,
+            # we do not perform bounding box regression for background classes.
+            gt_class_cols = box_dim * fg_gt_classes[:, None] + torch.arange(box_dim, device=device)
+
+
+
+        ### 
+        mahathresh = getMahaThreshold(0.7)
+
+        ## Computing the loss attenuation
+        maha_dists = (self.pred_proposal_deltas[fg_inds[:, None], gt_class_cols] - gt_proposal_deltas[fg_inds])**2/(self.pred_proposal_uncertain[fg_inds[:, None], gt_class_cols])  
+        loss_attenuation_final = (maha_dists / 2.0 + torch.log(self.pred_proposal_uncertain[fg_inds[:, None], gt_class_cols])).sum()
+
+        ## Computing mahalanobis penalty   
+        maha_dists = maha_dists.sum(dim = 1)
+        ## if mahadistance is already less than the threshold, we don't need to worry, so we clamp it to 0. As it's already in our desired range. SO no penalty
+        ## hence F.relu().
+        mahalanobis_penalty = ((F.relu(maha_dists - mahathresh))).sum()   
+        # if mahalanobis_penalty > 100:
+        #     import ipdb; ipdb.set_trace()
+        print("Mahalanobis penalty is: ", mahalanobis_penalty / self.gt_classes.numel())
+        mahalanobis_attenuation_loss = (loss_attenuation_final + annealing_weight * mahalanobis_penalty) / self.gt_classes.numel()
+        return mahalanobis_attenuation_loss
+
     def loss_attenuation(self):
         """
         Loss attenuation implementation
@@ -379,7 +466,7 @@ class FastRCNNOutputs(object):
         ### 
 
         ## Computing the loss attenuation
-        loss_attenuation_final = ((self.pred_proposal_deltas[fg_inds[:, None], gt_class_cols] - gt_proposal_deltas[fg_inds])**2/(self.pred_proposal_uncertain[fg_inds[:, None], gt_class_cols]) + torch.log(self.pred_proposal_uncertain[fg_inds[:, None], gt_class_cols])).sum()/self.gt_classes.numel()
+        loss_attenuation_final = ((self.pred_proposal_deltas[fg_inds[:, None], gt_class_cols] - gt_proposal_deltas[fg_inds])**2/(2 * self.pred_proposal_uncertain[fg_inds[:, None], gt_class_cols]) + torch.log(self.pred_proposal_uncertain[fg_inds[:, None], gt_class_cols])).sum()/self.gt_classes.numel()
 
         return loss_attenuation_final
 
@@ -460,6 +547,9 @@ class FastRCNNOutputs(object):
         elif self.loss_type == 'loss_cal':
             loss_name = 'loss_calibration'
             loss_reg = self.loss_calibration()
+        elif self.loss_type == 'mahalanobis_attenuation':
+            loss_name = 'mahalanobis_loss_attenuation'
+            loss_reg = self.mahalanobis_loss_attenuation()
 
             # loss_reg = self.loss_attenuation()
 

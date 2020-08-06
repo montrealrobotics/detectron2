@@ -580,7 +580,7 @@ _C.CUSTOM_OPTIONS.DETECTOR_TYPE = 'probabilistic'
 _C.CUSTOM_OPTIONS.ENCODING_TYPE = 'xyxy'
 
 
-## loss type regression when DETECTOR_TYPE is probabilistic: ['smooth_l1', loss_att', 'loss_cal']
+## loss type regression when DETECTOR_TYPE is probabilistic: ['smooth_l1', loss_att', 'loss_cal', 'mahalanobis_attenuation']
 ## Will be changes to smooth_l1_loss by default if detector is deterministic 
 _C.CUSTOM_OPTIONS.LOSS_TYPE_REG = 'loss_att'
 
@@ -591,6 +591,9 @@ _C.CUSTOM_OPTIONS.RICHARD_CURVE_SHARP = 0.15
 
 ## parameters for RPN loss
 _C.CUSTOM_OPTIONS.RPN_FORGROUND_LOSS_ONLY = True
+
+## over how many iterations the weights are annealed
+_C.CUSTOM_OPTIONS.ANNEALING_ITERATIONS = 15000
 
 ## whether we should corrupt background in stage-2 or not
 _C.CUSTOM_OPTIONS.CORRUPT_BG = True
