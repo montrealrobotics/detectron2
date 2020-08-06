@@ -104,13 +104,12 @@ def inference_on_dataset(model, data_loader, evaluator):
     total = len(data_loader)  # inference data loader must have a fixed length
     evaluator.reset()
 
-    logging_interval = 50
+    logging_interval = 500
     num_warmup = min(5, logging_interval - 1, total - 1)
     start_time = time.time()
     total_compute_time = 0
     with inference_context(model), torch.no_grad():
         for idx, inputs in enumerate(data_loader):
-            print("At index: ", idx)
             if idx == num_warmup:
                 start_time = time.time()
                 total_compute_time = 0
