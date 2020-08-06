@@ -485,6 +485,7 @@ class StandardROIHeads(ROIHeads):
         self.bbox_features = None
         self.bbox_labels = None
         self.corrupt_bg = cfg.CUSTOM_OPTIONS.CORRUPT_BG
+        self.total_iterations = cfg.CUSTOM_OPTIONS.ANNEALING_ITERATIONS
 
     def _init_box_head(self, cfg):
         # fmt: off
@@ -695,6 +696,7 @@ class StandardROIHeads(ROIHeads):
             proposals,
             self.smooth_l1_beta,
             self.loss_type,
+            self.total_iterations,
         )
 
         if self.training:
