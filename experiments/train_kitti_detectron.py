@@ -36,7 +36,7 @@ def get_kitti_dicts(root_dir, data_label):
     test_images = len(image_names) - train_images
     if data_label == 'train':
         image_names = image_names[:train_images]
-        # image_names = image_names[0:10]
+        # image_names = image_names[0:300]
     if data_label == 'test':
         image_names = image_names[-test_images:]
     # print(image_names)
@@ -121,15 +121,23 @@ cfg.merge_from_file("/home/mila/b/bhattdha/detectron2/configs/COCO-Detection/fas
 cfg.DATASETS.TRAIN = ("kitti/train",)
 cfg.DATASETS.TEST = ()   # no metrics implemented for this dataset
 cfg.DATALOADER.NUM_WORKERS = 2
+# cfg.MODEL.WEIGHTS = "/network/tmp1/bhattdha/detectron2_kitti/kitti_7_classes_probabilistic_loss_attenuation/model_0004999.pth"  # initialize from model zoo
 cfg.MODEL.WEIGHTS = "/home/mila/b/bhattdha/model_final_f6e8b1.pkl"  # initialize from model zoo
 # cfg.MODEL.WEIGHTS = "/network/tmp1/bhattdha/detectron2_kitti/resnet-26_FPN_3x_scratch/model_start.pth"
 # cfg.MODEL.WEIGHTS = "/network/tmp1/bhattdha/detectron2_kitti/model_0014999.pth"  # initialize fron deterministic model
-cfg.SOLVER.IMS_PER_BATCH = 12
+cfg.SOLVER.IMS_PER_BATCH = 18
 # cfg.SOLVER.BASE_LR = 0.015
-cfg.SOLVER.BASE_LR = 1e-3  
-cfg.SOLVER.MAX_ITER =  250000  
-cfg.MODEL.ROI_HEADS.BATCH_SIZE_PER_IMAGE = 128   # faster, and good enough for this toy dataset
+cfg.SOLVER.BASE_LR = 1e-4  
+cfg.SOLVER.MAX_ITER =  12000
+cfg.SOLVER.CHECKPOINT_PERIOD = 1000
+cfg.MODEL.ROI_HEADS.BATCH_SIZE_PER_IMAGE = 256   # faster, and good enough for this toy dataset
 cfg.MODEL.ROI_HEADS.NUM_CLASSES = len(class_list)  #  (kitti)
+
+cfg.CUSTOM_OPTIONS.RPN_FORGROUND_LOSS_ONLY = False
+cfg.CUSTOM_OPTIONS.CORRUPT_BG = False
+cfg.STRUCTURED_EDGE_RESPONSE.ENABLE = False
+cfg.CUSTOM_OPTIONS.LOSS_TYPE_REG = 'mahalanobis_attenuation'
+# cfg.CUSTOM_OPTIONS.LOSS_TYPE_REG = 'loss_att'
 cfg.OUTPUT_DIR = '/network/tmp1/bhattdha/detectron2_kitti/' + dir_name
 
 if cfg.STRUCTURED_EDGE_RESPONSE.ENABLE:
@@ -139,9 +147,10 @@ if cfg.STRUCTURED_EDGE_RESPONSE.ENABLE:
 # cfg.MODEL.RPN.IOU_THRESHOLDS = [0.00005, 0.5]
 # cfg.MODEL.ROI_HEADS.IOU_THRESHOLDS = [0.00005, 0.5]
 # cfg.MODEL.ROI_HEADS.IOU_LABELS = [0, -1, 1]
-# cfg.MODEL.ROI_HEADS.POSITIVE_FRACTION = 0.99
+
 # cfg.MODEL.ROI_HEADS.PROPOSAL_APPEND_GT = False
 cfg.CUSTOM_OPTIONS.DETECTOR_TYPE = 'probabilistic'
+cfg.MODEL.ROI_HEADS.POSITIVE_FRACTION = 0.85
 
 if cfg.CUSTOM_OPTIONS.DETECTOR_TYPE is 'deterministic':
     ## has to be smooth l1 loss if detector is deterministc

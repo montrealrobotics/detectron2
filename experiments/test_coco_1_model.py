@@ -40,7 +40,7 @@ cfg = get_cfg()
 # cfg_dict = torch.load('/network/tmp1/bhattdha/detectron2_coco/coco_1_class_deterministic_maskrcnn/coco_1_class_deterministic_maskrcnn_cfg.final')
 # cfg_dict = torch.load('/network/tmp1/bhattdha/detectron2_coco/coco_1_class_deterministic/coco_1_class_deterministic_cfg.final')
 # cfg_dict = torch.load('/network/tmp1/bhattdha/detectron2_coco/coco_1_class_more_layers_stage_2/coco_1_class_more_layers_stage_2_cfg.final')
-cfg_dict = torch.load('/network/tmp1/bhattdha/detectron2_coco/coco_1_class_rgbedge/coco_1_class_rgbedge_cfg.final')
+cfg_dict = torch.load('/network/tmp1/bhattdha/detectron2_coco/coco_1_class_corruptbg_rgbedge/coco_1_class_corruptbg_rgbedge_cfg.final')
 cfg = cfg_dict['cfg']
 
 # cfg.DATASETS.TRAIN = ("kitti/train",)
@@ -49,10 +49,10 @@ cfg.DATASETS.TEST = ('coco_2017_val',)   # no metrics implemented for this datas
 
 cfg.MODEL.ROI_HEADS.NUM_CLASSES = len(class_list)  #  (kitti)
 
-cfg.OUTPUT_DIR = '/network/tmp1/bhattdha/detectron2_coco/coco_1_class_rgbedge/'
-cfg.MODEL.WEIGHTS = os.path.join(cfg.OUTPUT_DIR, "model_0079999.pth")
-cfg.MODEL.ROI_HEADS.SCORE_THRESH_TEST = 0.1   # set the testing threshold for this model
-cfg.MODEL.RPN.POST_NMS_TOPK_TEST = 3000
+cfg.OUTPUT_DIR = '/network/tmp1/bhattdha/detectron2_coco/coco_1_class_corruptbg_rgbedge/'
+cfg.MODEL.WEIGHTS = os.path.join(cfg.OUTPUT_DIR, "model_0069999.pth")
+cfg.MODEL.ROI_HEADS.SCORE_THRESH_TEST = 0.6   # set the testing threshold for this model
+cfg.MODEL.RPN.POST_NMS_TOPK_TEST = 10000
 cfg.MODEL.MASK_ON = False
 predictor = DefaultPredictor(cfg)
 
@@ -76,5 +76,5 @@ for ind, image_path in enumerate(all_image_paths):
     im_new[0:im.shape[0], :,:] = im
     im_new[im.shape[0]:2*im.shape[0], :,:] = v.get_image()[:, :, ::-1]
 
-    cv2.imwrite('/network/tmp1/bhattdha/denso_dataset/coco_1_class_rgbedge_original_image/' + image_name, im_new) #v.get_image()[:, :, ::-1]) 
+    cv2.imwrite('/network/tmp1/bhattdha/denso_dataset/coco_1_class_corruptbg_rgbedge_resize_image/' + image_name, im_new) #v.get_image()[:, :, ::-1]) 
 

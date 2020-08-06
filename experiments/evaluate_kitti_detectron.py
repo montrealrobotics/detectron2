@@ -24,8 +24,9 @@ import argparse
 
 # dir_name = args['experiment_comment']
 
-class_list = ['Car', 'Van', 'Truck', 'Tram']
+# class_list = ['Car', 'Van', 'Truck', 'Tram']
 # class_list = ['Car', 'Van', 'Truck', 'Pedestrian', 'Cyclist', 'Person_sitting', 'Tram']
+class_list = ['Car', 'Van', 'Truck', 'Pedestrian', 'Cyclist', 'Person_sitting', 'Tram']
 
 # write a function that loads the dataset into detectron2's standard format
 def get_kitti_dicts(root_dir, data_label):
@@ -35,7 +36,7 @@ def get_kitti_dicts(root_dir, data_label):
     test_images = len(image_names) - train_images
     if data_label == 'train':
         image_names = image_names[:train_images]
-        image_names = image_names[0:10]
+        # image_names = image_names[0:1200]
     if data_label == 'test':
         # import ipdb; ipdb.set_trace()
         image_names = image_names[-test_images:]
@@ -120,7 +121,7 @@ cfg = get_cfg()
 
 # loading config used during train time
 # cfg_dict = torch.load('/network/tmp1/bhattdha/detectron2_kitti/resnet-50_FPN/resnet-50_FPN_cfg.final')
-cfg_dict = torch.load('/network/tmp1/bhattdha/detectron2_kitti/train_xyxy_loss_att/train_xyxy_loss_att_cfg.final')
+cfg_dict = torch.load('/network/tmp1/bhattdha/detectron2_kitti/kitti_7_classes_probabilistic_annealing_mahalanobis_penalty/kitti_7_classes_probabilistic_annealing_mahalanobis_penalty_cfg.final')
 
 cfg = cfg_dict['cfg']
 cfg.MODEL.RPN.POST_NMS_TOPK_TEST = 1000
@@ -133,16 +134,16 @@ cfg.SOLVER.IMS_PER_BATCH = 6
 # cfg.SOLVER.BASE_LR = 0.015
 # cfg.SOLVER.BASE_LR = 3e-4  
 # cfg.SOLVER.MAX_ITER =  200000  
-cfg.MODEL.ROI_HEADS.BATCH_SIZE_PER_IMAGE = 128   # faster, and good enough for this toy dataset
+cfg.MODEL.ROI_HEADS.BATCH_SIZE_PER_IMAGE = 512   # faster, and good enough for this toy dataset
 cfg.MODEL.ROI_HEADS.NUM_CLASSES = len(class_list)  #  (kitti)
 
 
-cfg.OUTPUT_DIR = '/network/tmp1/bhattdha/detectron2_kitti/train_xyxy_loss_att/'
+cfg.OUTPUT_DIR = '/network/tmp1/bhattdha/detectron2_kitti/kitti_7_classes_probabilistic_annealing_mahalanobis_penalty/'
 # cfg.OUTPUT_DIR = '/network/tmp1/bhattdha/detectron2_kitti/resnet-50_FPN/'
 # import pdb; pdb.set_trace()
 
 """Now, we perform inference with the trained model on the kitti dataset. First, let's create a predictor using the model we just trained:"""
-cfg.MODEL.WEIGHTS = os.path.join(cfg.OUTPUT_DIR, "model_0029999.pth")
+cfg.MODEL.WEIGHTS = os.path.join(cfg.OUTPUT_DIR, "model_0009999.pth")
 cfg.MODEL.ROI_HEADS.SCORE_THRESH_TEST = 0.7   # set the testing threshold for this model
 # cfg.OUTPUT_DIR = '/network/tmp1/bhattdha/detectron2_kitti/' + dir_name
 
