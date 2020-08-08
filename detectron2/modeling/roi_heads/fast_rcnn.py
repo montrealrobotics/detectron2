@@ -101,6 +101,7 @@ def fast_rcnn_inference_single_image(
         Same as `fast_rcnn_inference`, but for only one image.
     """
     scores = scores[:, :-1]
+    new_scores = scores 
     num_bbox_reg_classes = boxes.shape[1] // 4
     # Convert to Boxes to use the `clip` function ...
     boxes = Boxes(boxes.reshape(-1, 4))
@@ -119,7 +120,13 @@ def fast_rcnn_inference_single_image(
     else:
         boxes = boxes[filter_mask]
         sigma = sigma[filter_mask]
+        true_indices = torch.where(filter_mask)
+        ## send all scores so it can be used to compute PDQ
+        all_scores = new_scores[true_indices[0]]
     scores = scores[filter_mask]
+
+    ## normalize for PDQ
+    all_scores = all_scores / torch.sum(all_scores, dim = 1).view(len(all_scores), 1)
 
     # Apply per-class NMS
     keep = batched_nms(boxes, scores, filter_inds[:, 1], nms_thresh)
@@ -127,11 +134,15 @@ def fast_rcnn_inference_single_image(
         keep = keep[:topk_per_image]
     boxes, scores, sigma, filter_inds = boxes[keep], scores[keep], sigma[keep],filter_inds[keep]
 
+    ## select here also
+    all_scores = all_scores[keep]
+
     result = Instances(image_shape)
     result.pred_boxes = Boxes(boxes)
     result.scores = scores
     result.pred_sigma = sigma
     result.pred_classes = filter_inds[:, 1]
+    result.all_scores = all_scores
     return result, filter_inds[:, 0]
 
 def getMahaThreshold(prob_val):
@@ -622,7 +633,6 @@ class FastRCNNOutputs(object):
             sigma = None
         scores = self.predict_probs()
         image_shapes = self.image_shapes
-        # import ipdb; ipdb.set_trace()
         return fast_rcnn_inference(
             boxes, scores, sigma, image_shapes, score_thresh, nms_thresh, topk_per_image
         )

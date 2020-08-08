@@ -124,9 +124,9 @@ class COCOEvaluator(DatasetEvaluator):
                     instances.remove("pred_masks")
 
                 prediction["instances"] = instances_to_json(instances, input["image_id"])
-
             if "proposals" in output:
                 prediction["proposals"] = output["proposals"].to(self._cpu_device)
+
             self._predictions.append(prediction)
 
     def evaluate(self):
@@ -312,6 +312,7 @@ def instances_to_json(instances, img_id):
     boxes = instances.pred_boxes.tensor.numpy()
     boxes = BoxMode.convert(boxes, BoxMode.XYXY_ABS, BoxMode.XYWH_ABS)
     boxes = boxes.tolist()
+    all_scores = instances.all_scores.tolist()
     scores = instances.scores.tolist()
     classes = instances.pred_classes.tolist()
 
@@ -335,6 +336,7 @@ def instances_to_json(instances, img_id):
             "category_id": classes[k],
             "bbox": boxes[k],
             "score": scores[k],
+            "all_scores": all_scores[k],
         }
         if has_mask:
             result["segmentation"] = rles[k]
@@ -479,7 +481,7 @@ def _evaluate_predictions_on_coco(coco_gt, coco_results, iou_type, kpt_oks_sigma
         # We remove the bbox field to let mask AP use mask area.
         for c in coco_results:
             c.pop("bbox", None)
-
+    import ipdb; ipdb.set_trace()
     coco_dt = coco_gt.loadRes(coco_results)
     coco_eval = COCOeval(coco_gt, coco_dt, iou_type)
     # Use the COCO default keypoint OKS sigmas unless overrides are specified
