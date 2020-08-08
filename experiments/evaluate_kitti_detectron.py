@@ -41,7 +41,7 @@ def get_kitti_dicts(root_dir, data_label):
         # import ipdb; ipdb.set_trace()
         image_names = image_names[-test_images:]
     # print(image_names)
-    # image_names = image_names[0:100]
+    image_names = image_names[0:100]
         
     record = {}
     dataset_dicts = []
@@ -121,7 +121,7 @@ cfg = get_cfg()
 
 # loading config used during train time
 # cfg_dict = torch.load('/network/tmp1/bhattdha/detectron2_kitti/resnet-50_FPN/resnet-50_FPN_cfg.final')
-cfg_dict = torch.load('/network/tmp1/bhattdha/detectron2_kitti/kitti_7_classes_probabilistic_annealing_mahalanobis_penalty/kitti_7_classes_probabilistic_annealing_mahalanobis_penalty_cfg.final')
+cfg_dict = torch.load('/network/tmp1/bhattdha/detectron2_kitti/kitti_7_classes_probabilistic_annealing_mahalanobis_penalty_v2/kitti_7_classes_probabilistic_annealing_mahalanobis_penalty_v2_cfg.final')
 
 cfg = cfg_dict['cfg']
 cfg.MODEL.RPN.POST_NMS_TOPK_TEST = 1000
@@ -138,13 +138,13 @@ cfg.MODEL.ROI_HEADS.BATCH_SIZE_PER_IMAGE = 512   # faster, and good enough for t
 cfg.MODEL.ROI_HEADS.NUM_CLASSES = len(class_list)  #  (kitti)
 
 
-cfg.OUTPUT_DIR = '/network/tmp1/bhattdha/detectron2_kitti/kitti_7_classes_probabilistic_annealing_mahalanobis_penalty/'
+cfg.OUTPUT_DIR = '/network/tmp1/bhattdha/detectron2_kitti/kitti_7_classes_probabilistic_annealing_mahalanobis_penalty_v2/'
 # cfg.OUTPUT_DIR = '/network/tmp1/bhattdha/detectron2_kitti/resnet-50_FPN/'
 # import pdb; pdb.set_trace()
 
 """Now, we perform inference with the trained model on the kitti dataset. First, let's create a predictor using the model we just trained:"""
-cfg.MODEL.WEIGHTS = os.path.join(cfg.OUTPUT_DIR, "model_0009999.pth")
-cfg.MODEL.ROI_HEADS.SCORE_THRESH_TEST = 0.7   # set the testing threshold for this model
+cfg.MODEL.WEIGHTS = os.path.join(cfg.OUTPUT_DIR, "model_0011999.pth")
+cfg.MODEL.ROI_HEADS.SCORE_THRESH_TEST = 0.05   # set the testing threshold for this model
 # cfg.OUTPUT_DIR = '/network/tmp1/bhattdha/detectron2_kitti/' + dir_name
 
 if cfg.CUSTOM_OPTIONS.DETECTOR_TYPE is 'deterministic':
