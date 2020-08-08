@@ -429,7 +429,6 @@ class Res5ROIHeads(ROIHeads):
                 losses["loss_mask"] = mask_rcnn_loss(mask_logits, proposals)
             return [], losses
         else:
-
             pred_instances, _ = outputs.inference(
                 self.test_score_thresh, self.test_nms_thresh, self.test_detections_per_img
             )
@@ -485,7 +484,10 @@ class StandardROIHeads(ROIHeads):
         self.bbox_features = None
         self.bbox_labels = None
         self.corrupt_bg = cfg.CUSTOM_OPTIONS.CORRUPT_BG
-        self.total_iterations = cfg.CUSTOM_OPTIONS.ANNEALING_ITERATIONS
+        if hasattr(cfg.CUSTOM_OPTIONS, 'ANNEALING_ITERATIONS'):
+            self.total_iterations = cfg.CUSTOM_OPTIONS.ANNEALING_ITERATIONS
+        else:
+            self.total_iterations = 100
 
     def _init_box_head(self, cfg):
         # fmt: off
