@@ -19,12 +19,12 @@ from tabulate import tabulate
 
 import detectron2.utils.comm as comm
 from detectron2.data import MetadataCatalog
-from detectron2.data.datasets.coco import convert_to_coco_json
+from detectron2.data.datasets.coco import convert_to_coco_json, convert_to_coco_dict
 from detectron2.structures import Boxes, BoxMode, pairwise_iou
 from detectron2.utils.logger import create_small_table
 
 from .evaluator import DatasetEvaluator
-# from pycocotools.cocoeval import COCOeval
+from pycocotools.cocoeval import COCOeval as COCOevaloriginal ## for segmentation
 from .cocoapi_modified import COCOeval
 
 class COCOEvaluator(DatasetEvaluator):
@@ -53,13 +53,16 @@ class COCOEvaluator(DatasetEvaluator):
 
         self._metadata = MetadataCatalog.get(dataset_name)
 
+
+        # self.coco_gt_dict = convert_to_coco_dict(dataset_name)
+
         if not hasattr(self._metadata, "json_file"):
             self._logger.warning(f"json_file was not found in MetaDataCatalog for '{dataset_name}'")
 
             cache_path = os.path.join(output_dir, f"{dataset_name}_coco_format.json")
             self._metadata.json_file = cache_path
             convert_to_coco_json(dataset_name, cache_path)
-        
+            
         json_file = PathManager.get_local_path(self._metadata.json_file)
         with contextlib.redirect_stdout(io.StringIO()):
             self._coco_api = COCO(json_file)
@@ -84,6 +87,7 @@ class COCOEvaluator(DatasetEvaluator):
         ## with mean average mahalanobis precision
         if cfg.CUSTOM_OPTIONS.DETECTOR_TYPE == 'probabilistic':
             tasks = tasks + ("bbox_prob",)
+            tasks = tasks + ("bbox_prob_PDQ",)
         if cfg.MODEL.MASK_ON:
             tasks = tasks + ("segm",)
         if cfg.MODEL.KEYPOINT_ON:
@@ -184,9 +188,14 @@ class COCOEvaluator(DatasetEvaluator):
 
         self._logger.info("Evaluating predictions ...")
         for task in sorted(tasks):
+
+            ## we evaluate for PDQ in the end
+            if task == 'bbox_prob_PDQ':
+                continue
+
             coco_eval = (
                 _evaluate_predictions_on_coco(
-                    self._coco_api, self._coco_results, task, kpt_oks_sigmas=self._kpt_oks_sigmas
+                    self._coco_api, self._coco_results, task, kpt_oks_sigmas=self._kpt_oks_sigmas, coco_gt_dict = None
                 )
                 if len(self._coco_results) > 0
                 else None  # cocoapi does not handle empty results very well
@@ -196,6 +205,15 @@ class COCOEvaluator(DatasetEvaluator):
                 coco_eval, task, class_names=self._metadata.get("thing_classes")
             )
             self._results[task] = res
+
+        if 'bbox_prob_PDQ' in tasks:
+            if not self._output_dir:
+                out_dir = os.getcwd()
+            else: 
+                out_dir = self._output_dir
+            print("Evaluating against with mahalanobis distance PDQ: ")
+            self._results['bbox_prob_PDQ'] = _evaluate_PDQ_predictions_on_coco(self._metadata.json_file, file_path, out_dir)
+                
 
     def _eval_box_proposals(self):
         """
@@ -467,7 +485,7 @@ def _evaluate_box_proposals(dataset_predictions, coco_api, thresholds=None, area
     }
 
 
-def _evaluate_predictions_on_coco(coco_gt, coco_results, iou_type, kpt_oks_sigmas=None):
+def _evaluate_predictions_on_coco(coco_gt, coco_results, iou_type, kpt_oks_sigmas=None, coco_gt_dict = None):
     """
     Evaluate the coco results using COCOEval API.
     """
@@ -481,9 +499,12 @@ def _evaluate_predictions_on_coco(coco_gt, coco_results, iou_type, kpt_oks_sigma
         # We remove the bbox field to let mask AP use mask area.
         for c in coco_results:
             c.pop("bbox", None)
-    import ipdb; ipdb.set_trace()
     coco_dt = coco_gt.loadRes(coco_results)
     coco_eval = COCOeval(coco_gt, coco_dt, iou_type)
+
+    if iou_type == "segm":
+        coco_eval = COCOevaloriginal(coco_gt, coco_dt, iou_type)
+
     # Use the COCO default keypoint OKS sigmas unless overrides are specified
     if kpt_oks_sigmas:
         coco_eval.params.kpt_oks_sigmas = np.array(kpt_oks_sigmas)
@@ -492,3 +513,13 @@ def _evaluate_predictions_on_coco(coco_gt, coco_results, iou_type, kpt_oks_sigma
     coco_eval.summarize()
 
     return coco_eval
+
+def _evaluate_PDQ_predictions_on_coco(gt_json_filepath, det_json_file_path, output_dir):
+
+    from .pdq_evaluation.read_files import convert_coco_det_to_rvc_det
+    from .pdq_evaluation.evaluate import evaluation_PDQ
+    ## let's get detections for PDQ format
+
+    det_output_file = os.path.join(output_dir, 'detections_PDQ_format.json')
+    convert_coco_det_to_rvc_det(det_json_file_path, gt_json_filepath, det_output_file)
+    return evaluation_PDQ(gt_json_filepath, det_output_file)
