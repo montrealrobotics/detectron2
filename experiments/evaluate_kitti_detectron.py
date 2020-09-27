@@ -41,7 +41,7 @@ def get_kitti_dicts(root_dir, data_label):
         # import ipdb; ipdb.set_trace()
         image_names = image_names[-test_images:]
     # print(image_names)
-    image_names = image_names[0:100]
+    # image_names = image_names[0:200]
         
     record = {}
     dataset_dicts = []
@@ -144,7 +144,7 @@ cfg.OUTPUT_DIR = '/network/tmp1/bhattdha/detectron2_kitti/kitti_7_classes_probab
 
 """Now, we perform inference with the trained model on the kitti dataset. First, let's create a predictor using the model we just trained:"""
 cfg.MODEL.WEIGHTS = os.path.join(cfg.OUTPUT_DIR, "model_0011999.pth")
-cfg.MODEL.ROI_HEADS.SCORE_THRESH_TEST = 0.05   # set the testing threshold for this model
+cfg.MODEL.ROI_HEADS.SCORE_THRESH_TEST = 0.3   # set the testing threshold for this model
 # cfg.OUTPUT_DIR = '/network/tmp1/bhattdha/detectron2_kitti/' + dir_name
 
 if cfg.CUSTOM_OPTIONS.DETECTOR_TYPE is 'deterministic':

@@ -20,7 +20,7 @@ from detectron2.data import build_detection_test_loader
 from detectron2.engine import DefaultTrainer
 from detectron2.config import get_cfg
 
-model_paths = sorted(glob.glob('/network/tmp1/bhattdha/detectron2_coco/coco_all_classes_annealing_mahalanobis_penalty/model_0*'), reverse=True)
+model_paths = sorted(glob.glob('/network/tmp1/bhattdha/detectron2_coco/coco_all_classes_loss_attenuation/model_0051999.pth'), reverse=True)
 # model_paths = ["/home/mila/b/bhattdha/model_final_a3ec72.pkl"]
 
 final_results = {}
@@ -36,7 +36,7 @@ for model_path in model_paths:
 
     # loading config used during train time
     # cfg_dict = torch.load('/network/tmp1/bhattdha/detectron2_kitti/resnet-50_FPN/resnet-50_FPN_cfg.final')
-    cfg_dict = torch.load('/network/tmp1/bhattdha/detectron2_coco/coco_all_classes_annealing_mahalanobis_penalty/coco_all_classes_annealing_mahalanobis_penalty_cfg.final')
+    cfg_dict = torch.load('/network/tmp1/bhattdha/detectron2_coco/coco_all_classes_loss_attenuation/coco_all_classes_loss_attenuation_cfg.final')
 
     cfg = cfg_dict['cfg']
     cfg.MODEL.RPN.POST_NMS_TOPK_TEST = 1000
@@ -47,7 +47,7 @@ for model_path in model_paths:
     cfg.SOLVER.IMS_PER_BATCH = 10
     cfg.MODEL.ROI_HEADS.SCORE_THRESH_TEST = 0.05
 
-    cfg.OUTPUT_DIR = '/network/tmp1/bhattdha/detectron2_coco/coco_all_classes_annealing_mahalanobis_penalty/'
+    cfg.OUTPUT_DIR = '/network/tmp1/bhattdha/detectron2_coco/coco_all_classes_loss_attenuation/'
     # cfg.OUTPUT_DIR = '/network/tmp1/bhattdha/detectron2_kitti/resnet-50_FPN/'
     # import pdb; pdb.set_trace()
 
@@ -64,13 +64,13 @@ for model_path in model_paths:
     # import ipdb; ipdb.set_trace()
     ## Evaluation happens here
     
-    evaluator = COCOEvaluator("coco_2017_val", cfg, False, output_dir="coco_all_classes_annealing_mahalanobis_penalty/" + model_name)
+    evaluator = COCOEvaluator("coco_2017_val", cfg, False, output_dir='coco_all_classes_loss_attenuation' + '_' + model_name)
     val_loader = build_detection_test_loader(cfg, "coco_2017_val")
     results  = inference_on_dataset(predictor.model, val_loader, evaluator)
     final_results[model_name] = results
     # print(results)
 
-np.save(os.path.join(os.getcwd(), 'coco_all_classes_annealing_mahalanobis_penalty', 'final_results.npy'), final_results)
+np.save(os.path.join(os.getcwd(), 'coco_all_classes_loss_attenuation', 'final_results.npy'), final_results)
 import ipdb; ipdb.set_trace()
 
 # from detectron2.utils.visualizer import ColorMode
