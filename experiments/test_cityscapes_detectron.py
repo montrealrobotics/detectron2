@@ -17,11 +17,11 @@ from detectron2.data import MetadataCatalog
 from detectron2.utils.visualizer import ColorMode
 
 cfg = get_cfg()
-cfg.merge_from_file("/network/home/bhattdha/detectron2/configs/Cityscapes/faster_rcnn_R_101_FPN_3x.yaml")
+cfg.merge_from_file("/home/mila/b/bhattdha/detectron2/configs/Cityscapes/faster_rcnn_R_101_FPN_3x.yaml")
 
 cs_metadata = MetadataCatalog.get('cityscapes_fine_instance_seg_val')
 
-
+import ipdb; ipdb.set_trace()
 """Now, let's fine-tune a coco-pretrained R50-FPN Mask R-CNN model on the balloon dataset. It takes ~6 minutes to train 300 iterations on Colab's K80 GPU."""
 
 from detectron2.engine import DefaultTrainer

@@ -29,24 +29,24 @@ from detectron2.config import get_cfg
 
 cfg = get_cfg()
 # cfg.merge_from_file("/network/home/bhattdha/detectron2/configs/COCO-Detection/faster_rcnn_R_26_FPN_3x.yaml")
-cfg.merge_from_file("/network/home/bhattdha/detectron2/configs/Cityscapes/faster_rcnn_R_101_FPN_3x.yaml")
+cfg.merge_from_file("/home/mila/b/bhattdha/detectron2/configs/Cityscapes/faster_rcnn_R_101_FPN_3x.yaml")
 # cfg.DATASETS.TRAIN = ("kitti/train",)
 # cfg.DATASETS.TEST = ()   # no metrics implemented for this dataset
 cfg.DATALOADER.NUM_WORKERS = 2
-# cfg.MODEL.WEIGHTS = "detectron2://COCO-Detection/faster_rcnn_R_50_FPN_3x/137849458/model_final_280758.pkl"  # initialize from model zoo
+cfg.MODEL.WEIGHTS = "/home/mila/b/bhattdha/model_final_f6e8b1.pkl"
 # cfg.MODEL.WEIGHTS = "/network/tmp1/bhattdha/detectron2_kitti/resnet-26_FPN_3x_scratch/model_start.pth"
 # cfg.MODEL.WEIGHTS = "/network/tmp1/bhattdha/detectron2_kitti/model_0014999.pth"  # initialize fron deterministic model
-cfg.SOLVER.IMS_PER_BATCH = 4
+cfg.SOLVER.IMS_PER_BATCH = 18
 # cfg.SOLVER.BASE_LR = 0.015
-cfg.SOLVER.BASE_LR = 2e-4 
-cfg.SOLVER.MAX_ITER =  255000
-cfg.MODEL.ROI_HEADS.BATCH_SIZE_PER_IMAGE = 256
+cfg.SOLVER.BASE_LR = 1e-3 
+cfg.SOLVER.MAX_ITER =  20000
+cfg.MODEL.ROI_HEADS.BATCH_SIZE_PER_IMAGE = 512
 cfg.OUTPUT_DIR = '/network/tmp1/bhattdha/detectron2_cityscapes/' + dir_name
-
+cfg.SOLVER.CHECKPOINT_PERIOD = 2000
 # cfg.MODEL.RPN.IOU_THRESHOLDS = [0.00005, 0.5]
 # cfg.MODEL.ROI_HEADS.IOU_THRESHOLDS = [0.00005, 0.5]
 # cfg.MODEL.ROI_HEADS.IOU_LABELS = [0, -1, 1]
-cfg.MODEL.ROI_HEADS.POSITIVE_FRACTION = 0.99
+# cfg.MODEL.ROI_HEADS.POSITIVE_FRACTION = 0.99
 # cfg.MODEL.ROI_HEADS.PROPOSAL_APPEND_GT = True
 
 if cfg.CUSTOM_OPTIONS.DETECTOR_TYPE is 'deterministic':
@@ -64,7 +64,14 @@ torch.save({'cfg': cfg}, cfg.OUTPUT_DIR + '/' + dir_name + '_cfg.final')
 
 trainer = DefaultTrainer(cfg) 
 trainer.resume_or_load(resume=True)
-print("start training")
+
+print("Freezing first stage!")
+for name, p in trainer.model.named_parameters():
+	if 'roi_heads' not in name:
+		# print(name)
+		p.requires_grad = False
+print("Done Freezing!")
+print("Start training!")
 print("The checkpoint iteration value is: ", cfg.SOLVER.CHECKPOINT_PERIOD)
 trainer.train()
     

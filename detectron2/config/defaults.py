@@ -590,21 +590,23 @@ _C.CUSTOM_OPTIONS.RICHARD_CURVE_HIGH = 50
 _C.CUSTOM_OPTIONS.RICHARD_CURVE_SHARP = 0.15
 
 ## parameters for RPN loss
-_C.CUSTOM_OPTIONS.RPN_FORGROUND_LOSS_ONLY = True
+_C.CUSTOM_OPTIONS.RPN_FORGROUND_LOSS_ONLY = False
 
 ## over how many iterations the weights are annealed
 _C.CUSTOM_OPTIONS.ANNEALING_ITERATIONS = 15000
 
 ## whether we should corrupt background in stage-2 or not
-_C.CUSTOM_OPTIONS.CORRUPT_BG = True
+_C.CUSTOM_OPTIONS.CORRUPT_BG = False
 
 ## Option around input and structured edge response
 _C.STRUCTURED_EDGE_RESPONSE = CN()
 ## do we want structured edge response?
-_C.STRUCTURED_EDGE_RESPONSE.ENABLE = True
+_C.STRUCTURED_EDGE_RESPONSE.ENABLE = False
 
 ## types: ["BGR", "RGBEDGE", "EDGE", "GREY", "GREYEDGE", "RGBCONCATEDGE", "GREYCONCATEDGE"]
 ## #channels: [3, 3, 1, 1, 1, 4, 2]
+## these are only effective if structured edge response in enabled, they wouldn't be used otherwise. 
+
 _C.STRUCTURED_EDGE_RESPONSE.INPUT_TYPE = "RGBEDGE"
 _C.STRUCTURED_EDGE_RESPONSE.PIXEL_MEAN = CN({'BGR': [103.530, 116.280, 123.675],
 											 'RGBEDGE': [100.0, 100.0, 100.0],	
