@@ -41,7 +41,7 @@ for model_path in model_paths:
     cfg = cfg_dict['cfg']
     cfg.MODEL.RPN.POST_NMS_TOPK_TEST = 1000
     
-    cfg.DATASETS.TEST = ("cityscapes_fine_instance_seg_train",)   
+    cfg.DATASETS.TEST = ("cityscapes_fine_instance_seg_val",)   
     cfg.MODEL.MASK_ON = False
     cfg.DATALOADER.NUM_WORKERS = 2
     cfg.SOLVER.IMS_PER_BATCH = 10
@@ -64,12 +64,12 @@ for model_path in model_paths:
     # import ipdb; ipdb.set_trace()
     ## Evaluation happens here
     
-    evaluator = COCOEvaluator("cityscapes_fine_instance_seg_train", cfg, False, output_dir='first_stage_coco_frozen_R-101' + '_' + model_name)
-    val_loader = build_detection_test_loader(cfg, "cityscapes_fine_instance_seg_train")
+    evaluator = COCOEvaluator("cityscapes_fine_instance_seg_val", cfg, False, output_dir='first_stage_coco_frozen_R-101' + '_' + model_name)
+    val_loader = build_detection_test_loader(cfg, "cityscapes_fine_instance_seg_val")
     results  = inference_on_dataset(predictor.model, val_loader, evaluator)
     final_results[model_name] = results
     # print(results)
-
+print(final_results)
 np.save(os.path.join(os.getcwd(), 'first_stage_coco_frozen_R-101', 'final_results.npy'), final_results)
 import ipdb; ipdb.set_trace()
 

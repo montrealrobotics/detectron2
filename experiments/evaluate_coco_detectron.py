@@ -20,7 +20,32 @@ from detectron2.data import build_detection_test_loader
 from detectron2.engine import DefaultTrainer
 from detectron2.config import get_cfg
 
-model_paths = sorted(glob.glob('/network/tmp1/bhattdha/detectron2_coco/coco_all_classes_loss_attenuation/model_0051999.pth'), reverse=True)
+import argparse
+
+# os.environ["DETECTRON2_DAT"] = "my_export"
+
+ap = argparse.ArgumentParser()
+ap.add_argument("-name", "--model_directory", required = True, help="Directory where model is located") ##  example: coco_xyxy_full_model
+
+## example: model_0004999.pth
+## if model_name is "all", then we evaluate all the models in the directory
+ap.add_argument("-model_name", "--model_to_evaluate", required = True, help="Which model to evaluate")  
+
+args = vars(ap.parse_args())
+
+dir_name = args['model_directory']
+model_name = args['model_to_evaluate']
+
+model_dir_path = os.path.join('/network/tmp1/bhattdha/detectron2_coco/', dir_name)
+if model_name == "all":
+    model_paths = sorted(glob.glob(model_dir_path + '/model_*.pth'))
+else:
+    model_paths = sorted(glob.glob(model_dir_path + '/' + model_name), reverse=True)
+
+## if we have no models, we can't evaluate them
+assert len(model_paths) != 0, 'No models found in {} directory'.format(model_dir_path)
+
+# model_paths = sorted(glob.glob('/network/tmp1/bhattdha/detectron2_coco/coco_xyxy_full_model/model_*.pth'), reverse=True)
 # model_paths = ["/home/mila/b/bhattdha/model_final_a3ec72.pkl"]
 
 final_results = {}
@@ -36,18 +61,18 @@ for model_path in model_paths:
 
     # loading config used during train time
     # cfg_dict = torch.load('/network/tmp1/bhattdha/detectron2_kitti/resnet-50_FPN/resnet-50_FPN_cfg.final')
-    cfg_dict = torch.load('/network/tmp1/bhattdha/detectron2_coco/coco_all_classes_loss_attenuation/coco_all_classes_loss_attenuation_cfg.final')
+    cfg_dict = torch.load('/network/tmp1/bhattdha/detectron2_coco/' + dir_name + '/' + dir_name + '_cfg.final')
 
     cfg = cfg_dict['cfg']
-    cfg.MODEL.RPN.POST_NMS_TOPK_TEST = 1000
+    # cfg.MODEL.RPN.POST_NMS_TOPK_TEST = 1000
     
-    cfg.DATASETS.TEST = ("coco_2017_val",)   
+    cfg.DATASETS.TEST = ("coco_2017_train",)
     cfg.MODEL.MASK_ON = False
     cfg.DATALOADER.NUM_WORKERS = 2
     cfg.SOLVER.IMS_PER_BATCH = 10
     cfg.MODEL.ROI_HEADS.SCORE_THRESH_TEST = 0.05
 
-    cfg.OUTPUT_DIR = '/network/tmp1/bhattdha/detectron2_coco/coco_all_classes_loss_attenuation/'
+    cfg.OUTPUT_DIR = '/network/tmp1/bhattdha/detectron2_coco/' + dir_name + '/'
     # cfg.OUTPUT_DIR = '/network/tmp1/bhattdha/detectron2_kitti/resnet-50_FPN/'
     # import pdb; pdb.set_trace()
 
@@ -64,13 +89,13 @@ for model_path in model_paths:
     # import ipdb; ipdb.set_trace()
     ## Evaluation happens here
     
-    evaluator = COCOEvaluator("coco_2017_val", cfg, False, output_dir='coco_all_classes_loss_attenuation' + '_' + model_name)
-    val_loader = build_detection_test_loader(cfg, "coco_2017_val")
+    evaluator = COCOEvaluator("coco_2017_train", cfg, False, output_dir=dir_name + '/' + model_name)
+    val_loader = build_detection_test_loader(cfg, "coco_2017_train")
     results  = inference_on_dataset(predictor.model, val_loader, evaluator)
     final_results[model_name] = results
     # print(results)
 
-np.save(os.path.join(os.getcwd(), 'coco_all_classes_loss_attenuation', 'final_results.npy'), final_results)
+np.save(os.path.join(os.getcwd(), dir_name, 'final_results.npy'), final_results)
 import ipdb; ipdb.set_trace()
 
 # from detectron2.utils.visualizer import ColorMode

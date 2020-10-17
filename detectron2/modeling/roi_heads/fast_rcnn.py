@@ -241,6 +241,8 @@ def getMahaThreshold(prob_val):
 
 curr_iteration = 0
 curr_weight_index = 0
+dist_save = 0
+
 class FastRCNNOutputs(object):
     """
     A class that stores information about outputs of a Fast R-CNN head.
@@ -287,6 +289,7 @@ class FastRCNNOutputs(object):
         self.image_shapes = [x.image_size for x in proposals]
         self.total_iterations = total_iterations
         self.annealing_weights = np.arange(0.0, 1.05, 0.05)
+
         global curr_iteration
         curr_iteration = curr_iteration + 1 
         self.curr_iteration = curr_iteration
@@ -475,6 +478,26 @@ class FastRCNNOutputs(object):
             gt_class_cols = box_dim * fg_gt_classes[:, None] + torch.arange(box_dim, device=device)
 
         ### 
+
+        ##############################################################################################################################################################################
+
+        ## very dangerous piece of code, do not uncomment it without expert supervision
+
+        # our_imp_stuff = ((self.pred_proposal_deltas[fg_inds[:, None], gt_class_cols] - gt_proposal_deltas[fg_inds])**2/(self.pred_proposal_uncertain[fg_inds[:, None], gt_class_cols]))
+        # our_stuff = our_imp_stuff.detach().clone().cpu().numpy()
+        # global dist_save
+        # if dist_save is 0:
+        #     dist_save = our_stuff
+        # else: 
+        #     dist_save = np.concatenate((dist_save, our_stuff),axis=0)
+
+        # if self.curr_iteration == 1000:
+        #     print("The shape of dist_save is: {}".format(dist_save.shape))
+        #     np.save(f'/home/mila/b/bhattdha/detectron2/unigaussians.npy', np.array(dist_save))
+        #     import sys; sys.exit(0)
+
+
+        ##############################################################################################################################################################################
 
         ## Computing the loss attenuation
         loss_attenuation_final = ((self.pred_proposal_deltas[fg_inds[:, None], gt_class_cols] - gt_proposal_deltas[fg_inds])**2/(2 * self.pred_proposal_uncertain[fg_inds[:, None], gt_class_cols]) + torch.log(self.pred_proposal_uncertain[fg_inds[:, None], gt_class_cols])).sum()/self.gt_classes.numel()
