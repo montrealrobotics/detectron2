@@ -74,7 +74,8 @@ cfg.DATASETS.TEST = ()
 cfg.DATALOADER.NUM_WORKERS = 2
 # cfg.MODEL.WEIGHTS = "detectron2://COCO-Detection/faster_rcnn_R_50_FPN_3x/137849458/model_final_280758.pkl"  # initialize from model zoo
 # cfg.MODEL.WEIGHTS = "/home/mila/b/bhattdha/model_final_f6e8b1.pkl"
-cfg.MODEL.WEIGHTS = "/network/tmp1/bhattdha/detectron2_coco/coco_xyxy_full_model/model_final.pth"
+# cfg.MODEL.WEIGHTS = "/network/tmp1/bhattdha/detectron2_coco/coco_xyxy_full_model/model_final.pth"
+cfg.MODEL.WEIGHTS = "/network/tmp1/bhattdha/detectron2_coco/coco_probabilistic_from_coco_xyxy_deterministic_full_frozen/model_0004999.pth"
 # cfg.MODEL.WEIGHTS = "/network/tmp1/bhattdha/detectron2_kitti/model_0014999.pth"  # initialize fron deterministic model
 # cfg.SOLVER.IMS_PER_BATCH = 18	
 # cfg.SOLVER.BASE_LR = 0.015
@@ -88,7 +89,7 @@ cfg.STRUCTURED_EDGE_RESPONSE.ENABLE = False
 # cfg.CUSTOM_OPTIONS.ANNEALING_ITERATIONS = 5000
 # cfg.CUSTOM_OPTIONS.LOSS_TYPE_REG = 'mahalanobis_attenuation'
 # cfg.CUSTOM_OPTIONS.LOSS_TYPE_REG = 'smoothl1'
-cfg.CUSTOM_OPTIONS.LOSS_TYPE_REG = 'kl_divergence_batch_loss'
+cfg.CUSTOM_OPTIONS.LOSS_TYPE_REG = 'kl_batch_plus_loss_att'
 cfg.OUTPUT_DIR = '/network/tmp1/bhattdha/detectron2_coco/' + dir_name
 cfg.CUSTOM_OPTIONS.DETECTOR_TYPE = 'probabilistic'
 # cfg.CUSTOM_OPTIONS.STRUCTURED_EDGE_RESPONSE = True
@@ -97,7 +98,7 @@ cfg.CUSTOM_OPTIONS.DETECTOR_TYPE = 'probabilistic'
 cfg.CUSTOM_OPTIONS.ENCODING_TYPE = 'xyxy'
 
 cfg.SOLVER.IMS_PER_BATCH: 24
-cfg.SOLVER.BASE_LR: 2e-3
+cfg.SOLVER.BASE_LR: 1e-3
 cfg.SOLVER.STEPS: (210000, 250000)
 cfg.SOLVER.MAX_ITER: 270000
 
@@ -117,9 +118,9 @@ if cfg.CUSTOM_OPTIONS.DETECTOR_TYPE is 'deterministic':
 
 os.makedirs(cfg.OUTPUT_DIR, exist_ok=True)
 ### At this point, we will save the config as it becomes vital for testing in future
-# torch.save({'cfg': cfg}, cfg.OUTPUT_DIR + '/' + dir_name + '_cfg.final')
-# with PathManager.open(cfg.OUTPUT_DIR + '/' + dir_name + '_cfg.yaml', "w") as f:
-# 	f.write(cfg.dump())
+torch.save({'cfg': cfg}, cfg.OUTPUT_DIR + '/' + dir_name + '_cfg.final')
+with PathManager.open(cfg.OUTPUT_DIR + '/' + dir_name + '_cfg.yaml', "w") as f:
+	f.write(cfg.dump())
 
 trainer = DefaultTrainer(cfg) 
 trainer.resume_or_load(resume=True)
