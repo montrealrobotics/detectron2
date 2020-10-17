@@ -580,7 +580,7 @@ _C.CUSTOM_OPTIONS.DETECTOR_TYPE = 'probabilistic'
 _C.CUSTOM_OPTIONS.ENCODING_TYPE = 'xyxy'
 
 
-## loss type regression when DETECTOR_TYPE is probabilistic: ['smooth_l1', loss_att', 'loss_cal', 'mahalanobis_attenuation']
+## loss type regression when DETECTOR_TYPE is probabilistic: ['smooth_l1', loss_att', 'loss_cal', 'mahalanobis_attenuation', 'kl_divergence_batch_loss']
 ## Will be changes to smooth_l1_loss by default if detector is deterministic 
 _C.CUSTOM_OPTIONS.LOSS_TYPE_REG = 'loss_att'
 
