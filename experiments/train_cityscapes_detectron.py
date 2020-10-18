@@ -54,9 +54,9 @@ cfg.DATALOADER.NUM_WORKERS = 2
 cfg.MODEL.WEIGHTS = "/home/mila/b/bhattdha/archived_checkpoints/detectron2_cityscapes/mask_rcnn_mask_on_finetuned_loss_att/model_0056999.pth"
 # cfg.MODEL.WEIGHTS = "/network/tmp1/bhattdha/detectron2_kitti/resnet-26_FPN_3x_scratch/model_start.pth"
 # cfg.MODEL.WEIGHTS = "/network/tmp1/bhattdha/detectron2_kitti/model_0014999.pth"  # initialize fron deterministic model
-cfg.SOLVER.IMS_PER_BATCH = 16
+cfg.SOLVER.IMS_PER_BATCH = 8
 # cfg.SOLVER.BASE_LR = 0.015
-cfg.SOLVER.BASE_LR = 1e-2 
+cfg.SOLVER.BASE_LR = 1e-3 
 cfg.SOLVER.MAX_ITER =  200000
 # cfg.MODEL.ROI_HEADS.BATCH_SIZE_PER_IMAGE = 512
 cfg.OUTPUT_DIR = '/network/tmp1/bhattdha/detectron2_cityscapes/' + dir_name
@@ -84,12 +84,12 @@ with PathManager.open(cfg.OUTPUT_DIR + '/' + dir_name + '_cfg.yaml', "w") as f:
 trainer = DefaultTrainer(cfg) 
 trainer.resume_or_load(resume=True)
 
-print("Freezing first stage!")
-for name, p in trainer.model.named_parameters():
-	if 'roi_heads' not in name:
-		# print(name)
-		p.requires_grad = False
-print("Done Freezing!")
+# print("Freezing first stage!")
+# for name, p in trainer.model.named_parameters():
+# 	if 'roi_heads' not in name:
+# 		# print(name)
+# 		p.requires_grad = False
+# print("Done Freezing!")
 print("Start training!")
 print("The checkpoint iteration value is: ", cfg.SOLVER.CHECKPOINT_PERIOD)
 trainer.train()

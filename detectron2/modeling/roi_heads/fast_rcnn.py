@@ -758,15 +758,22 @@ class FastRCNNOutputs(object):
         # kldivergence = (torch.log(var2 / var1) + ( var1 + (mu1 - mu2)**2 ) / var2)/2.0
         # kldivergence = (torch.log(var1 / var2) + ( var2 + (mu2 - mu1)**2 ) / var1)/2.0 + (torch.log(var2 / var1) + ( var1 + (mu1 - mu2)**2 ) / var2)/2.0
         # bhattcharya_distance = 0.25 * torch.log(0.25 * (var1/var2 + var2/var1 + 2)) + 0.25 * ((mu1 - mu2)**2/(var1 + var2))
-        kldivergence = torch.distributions.kl.kl_divergence(our_dist, actual_dist) / dof
+        
 
+        ## hardcoded weight annealing!
+        if self.curr_iteration < 1500:
+            kldivergence = torch.distributions.kl.kl_divergence(our_dist, actual_dist) / dof
+        elif 1500 < self.curr_iteration < 3000:
+            kldivergence = 10.0 * torch.distributions.kl.kl_divergence(our_dist, actual_dist) / dof
+        else:
+            kldivergence = torch.distributions.kl.kl_divergence(our_dist, actual_dist)
         # if kldivergence > 50:
         # kldivergence = kldivergence / dof ## just normalizing
 
         # if kldivergence < 0.005:
         #     kldivergence = kldivergence * len(preds) ## just normalizing
 
-        print("KL divergence and smooth_l1 losses are {}, {}".format(kldivergence, loss_box_reg))
+        print("KL divergence, smooth_l1 losses and current itrations are {}, {} and {}".format(kldivergence, loss_box_reg, self.curr_iteration))
 
         return kldivergence + loss_box_reg
 
