@@ -675,6 +675,101 @@ class FastRCNNOutputs(object):
 
         return kldivergence + loss_attenuation_final
 
+    def kl_batch_plus_smoothl1(self):
+        """
+        Apply KL divergence + loss attenuation over the batch
+
+        Returns:
+            scalar Tensor
+        """
+        gt_proposal_deltas = self.box2box_transform.get_deltas(self.proposals.tensor, self.gt_boxes.tensor)
+        box_dim = gt_proposal_deltas.size(1)  # 4 or 5
+        cls_agnostic_bbox_reg = self.pred_proposal_deltas.size(1) == box_dim
+        device = self.pred_proposal_deltas.device
+
+        bg_class_ind = self.pred_class_logits.shape[1] - 1
+
+        # Box delta loss is only computed between the prediction for the gt class k
+        # (if 0 <= k < bg_class_ind) and the target; there is no loss defined on predictions
+        # for non-gt classes and background.
+        # Empty fg_inds produces a valid loss of zero as long as the size_average
+        # arg to smooth_l1_loss is False (otherwise it uses torch.mean internally
+        # and would produce a nan loss).
+        fg_inds = torch.nonzero((self.gt_classes >= 0) & (self.gt_classes < bg_class_ind)).squeeze(
+            1
+        )
+        if cls_agnostic_bbox_reg:
+            # pred_proposal_deltas only corresponds to foreground class for agnostic
+            gt_class_cols = torch.arange(box_dim, device=device)
+        else:
+            fg_gt_classes = self.gt_classes[fg_inds]
+            # pred_proposal_deltas for class k are located in columns [b * k : b * k + b],
+            # where b is the dimension of box representation (4 or 5)
+            # Note that compared to Detectron1,
+            # we do not perform bounding box regression for background classes.
+            gt_class_cols = box_dim * fg_gt_classes[:, None] + torch.arange(box_dim, device=device)
+
+
+        ## smooth l1
+        loss_box_reg = smooth_l1_loss(
+            self.pred_proposal_deltas[fg_inds[:, None], gt_class_cols],
+            gt_proposal_deltas[fg_inds],
+            self.smooth_l1_beta,
+            reduction="sum",
+        )
+        loss_box_reg = loss_box_reg / self.gt_classes.numel()
+
+
+        ## Computing KL-divergence
+        preds = self.pred_proposal_deltas[fg_inds[:, None], gt_class_cols].flatten()
+        gts = gt_proposal_deltas[fg_inds].flatten()
+        variance = self.pred_proposal_uncertain[fg_inds[:, None], gt_class_cols].flatten()
+
+        rng = default_rng()
+        dof = 100
+        no_samples = 1000
+
+        # assert len(preds) > dof*no_samples, 'DoF*no_samples and len(preds) are {} {}'.format(dof*no_samples, len(preds))
+
+        chi_sq_samples = []
+
+        for i in range(no_samples):            
+            indices = rng.choice(len(preds), size = dof, replace = False)
+            chi_sq_variable = (preds[indices] - gts[indices])**2 / variance[indices]
+            chi_sq_samples.append(chi_sq_variable.sum())
+
+        chi_sq_samples = torch.stack(chi_sq_samples)
+
+        emp_mean = chi_sq_samples.mean()
+        emp_var = chi_sq_samples.var()
+        gt_mean = dof
+        gt_variance = 2*dof
+
+        mu1 = gt_mean
+        mu2 = emp_mean
+        var1 = gt_variance
+        var2 = emp_var
+
+        actual_dist = torch.distributions.normal.Normal(mu1, var1**(0.5))
+        our_dist = torch.distributions.normal.Normal(mu2, var2**(0.5))
+
+        print("Emp mean and emp variance are {} {}".format(mu2, var2))
+
+        # kldivergence = (torch.log(var2 / var1) + ( var1 + (mu1 - mu2)**2 ) / var2)/2.0
+        # kldivergence = (torch.log(var1 / var2) + ( var2 + (mu2 - mu1)**2 ) / var1)/2.0 + (torch.log(var2 / var1) + ( var1 + (mu1 - mu2)**2 ) / var2)/2.0
+        # bhattcharya_distance = 0.25 * torch.log(0.25 * (var1/var2 + var2/var1 + 2)) + 0.25 * ((mu1 - mu2)**2/(var1 + var2))
+        kldivergence = torch.distributions.kl.kl_divergence(our_dist, actual_dist) / dof
+
+        # if kldivergence > 50:
+        # kldivergence = kldivergence / dof ## just normalizing
+
+        # if kldivergence < 0.005:
+        #     kldivergence = kldivergence * len(preds) ## just normalizing
+
+        print("KL divergence and smooth_l1 losses are {}, {}".format(kldivergence, loss_box_reg))
+
+        return kldivergence + loss_box_reg
+
     def smooth_l1_loss(self):
         """
         Compute the smooth L1 loss for box regression.
@@ -760,6 +855,9 @@ class FastRCNNOutputs(object):
         elif self.loss_type == 'kl_batch_plus_loss_att':
             loss_name = 'kl_batch_plus_loss_att'
             loss_reg = self.kl_batch_plus_loss_att()
+        elif self.loss_type == 'kl_batch_plus_smoothl1':
+            loss_name = 'kl_batch_plus_smoothl1'
+            loss_reg = self.kl_batch_plus_smoothl1()
 
             # loss_reg = self.loss_attenuation()
 
