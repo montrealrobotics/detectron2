@@ -20,8 +20,30 @@ from detectron2.data import build_detection_test_loader
 from detectron2.engine import DefaultTrainer
 from detectron2.config import get_cfg
 
-model_paths = sorted(glob.glob('/network/tmp1/bhattdha/detectron2_cityscapes/first_stage_coco_frozen_R-101/model_0019999.pth'), reverse=True)
-# model_paths = ["/home/mila/b/bhattdha/model_final_a3ec72.pkl"]
+import argparse
+
+# os.environ["DETECTRON2_DAT"] = "my_export"
+
+ap = argparse.ArgumentParser()
+ap.add_argument("-name", "--model_directory", required = True, help="Directory where model is located") ##  example: coco_xyxy_full_model
+
+## example: model_0004999.pth
+## if model_name is "all", then we evaluate all the models in the directory
+ap.add_argument("-model_name", "--model_to_evaluate", required = True, help="Which model to evaluate")  
+
+args = vars(ap.parse_args())
+
+dir_name = args['model_directory']
+model_name = args['model_to_evaluate']
+
+model_dir_path = os.path.join('/network/tmp1/bhattdha/detectron2_cityscapes/', dir_name)
+if model_name == "all":
+    model_paths = sorted(glob.glob(model_dir_path + '/model_*.pth'))
+else:
+    model_paths = sorted(glob.glob(model_dir_path + '/' + model_name), reverse=True)
+
+## if we have no models, we can't evaluate them
+assert len(model_paths) != 0, 'No models found in {} directory'.format(model_dir_path)
 
 final_results = {}
 
@@ -36,8 +58,8 @@ for model_path in model_paths:
 
     # loading config used during train time
     # cfg_dict = torch.load('/network/tmp1/bhattdha/detectron2_kitti/resnet-50_FPN/resnet-50_FPN_cfg.final')
-    cfg_dict = torch.load('/network/tmp1/bhattdha/detectron2_cityscapes/first_stage_coco_frozen_R-101/first_stage_coco_frozen_R-101_cfg.final')
-
+    # cfg_dict = torch.load('/network/tmp1/bhattdha/detectron2_cityscapes/first_stage_coco_frozen_R-101/first_stage_coco_frozen_R-101_cfg.final')
+    cfg_dict = torch.load('/network/tmp1/bhattdha/detectron2_cityscapes/' + dir_name + '/' + dir_name + '_cfg.final')
     cfg = cfg_dict['cfg']
     cfg.MODEL.RPN.POST_NMS_TOPK_TEST = 1000
     
@@ -47,8 +69,8 @@ for model_path in model_paths:
     cfg.SOLVER.IMS_PER_BATCH = 10
     cfg.MODEL.ROI_HEADS.SCORE_THRESH_TEST = 0.2
 
-    cfg.OUTPUT_DIR = '/network/tmp1/bhattdha/detectron2_cityscapes/first_stage_coco_frozen_R-101/'
-    # cfg.OUTPUT_DIR = '/network/tmp1/bhattdha/detectron2_kitti/resnet-50_FPN/'
+    # cfg.OUTPUT_DIR = '/network/tmp1/bhattdha/detectron2_cityscapes/first_stage_coco_frozen_R-101/'
+    cfg.OUTPUT_DIR = '/network/tmp1/bhattdha/detectron2_cityscapes/' + dir_name + '/'
     # import pdb; pdb.set_trace()
 
     """Now, we perform inference with the trained model on the kitti dataset. First, let's create a predictor using the model we just trained:"""
@@ -64,13 +86,13 @@ for model_path in model_paths:
     # import ipdb; ipdb.set_trace()
     ## Evaluation happens here
     
-    evaluator = COCOEvaluator("cityscapes_fine_instance_seg_val", cfg, False, output_dir='first_stage_coco_frozen_R-101' + '_' + model_name)
+    evaluator = COCOEvaluator("cityscapes_fine_instance_seg_val", cfg, False, output_dir=dir_name + '/' + model_name)
     val_loader = build_detection_test_loader(cfg, "cityscapes_fine_instance_seg_val")
     results  = inference_on_dataset(predictor.model, val_loader, evaluator)
     final_results[model_name] = results
     # print(results)
 print(final_results)
-np.save(os.path.join(os.getcwd(), 'first_stage_coco_frozen_R-101', 'final_results.npy'), final_results)
+np.save(os.path.join(os.getcwd(), dir_name, 'final_results.npy'), final_results)
 import ipdb; ipdb.set_trace()
 
 # from detectron2.utils.visualizer import ColorMode
