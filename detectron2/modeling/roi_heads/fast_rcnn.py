@@ -710,72 +710,87 @@ class FastRCNNOutputs(object):
             gt_class_cols = box_dim * fg_gt_classes[:, None] + torch.arange(box_dim, device=device)
 
 
-        ## smooth l1
-        loss_box_reg = smooth_l1_loss(
-            self.pred_proposal_deltas[fg_inds[:, None], gt_class_cols],
-            gt_proposal_deltas[fg_inds],
-            self.smooth_l1_beta,
-            reduction="sum",
-        )
-        loss_box_reg = loss_box_reg / self.gt_classes.numel()
+        ##############################################################################################################################################################################
+
+        ## very dangerous piece of code, do not uncomment it without expert supervision
+
+        our_imp_stuff = ((self.pred_proposal_deltas[fg_inds[:, None], gt_class_cols] - gt_proposal_deltas[fg_inds])**2/(self.pred_proposal_uncertain[fg_inds[:, None], gt_class_cols]))
+        our_stuff = our_imp_stuff.detach().clone().cpu().numpy()
+        global dist_save
+        if dist_save is 0:
+            dist_save = our_stuff
+        else: 
+            dist_save = np.concatenate((dist_save, our_stuff),axis=0)
+
+        if self.curr_iteration == 500:
+            print("The shape of dist_save is: {}".format(dist_save.shape))
+            np.save(f'/home/mila/b/bhattdha/detectron2/unigaussians_loss_att_model_cityscapes.npy', np.array(dist_save))
+            import sys; sys.exit(0)
+
+        ##############################################################################################################################################################################
+
+        # ## smooth l1
+        # loss_box_reg = smooth_l1_loss(
+        #     self.pred_proposal_deltas[fg_inds[:, None], gt_class_cols],
+        #     gt_proposal_deltas[fg_inds],
+        #     self.smooth_l1_beta,
+        #     reduction="sum",
+        # )
+        # loss_box_reg = loss_box_reg / self.gt_classes.numel()
 
 
-        ## Computing KL-divergence
-        preds = self.pred_proposal_deltas[fg_inds[:, None], gt_class_cols].flatten()
-        gts = gt_proposal_deltas[fg_inds].flatten()
-        variance = self.pred_proposal_uncertain[fg_inds[:, None], gt_class_cols].flatten()
+        # ## Computing KL-divergence
+        # preds = self.pred_proposal_deltas[fg_inds[:, None], gt_class_cols].flatten()
+        # gts = gt_proposal_deltas[fg_inds].flatten()
+        # variance = self.pred_proposal_uncertain[fg_inds[:, None], gt_class_cols].flatten()
 
-        rng = default_rng()
-        dof = 100
-        no_samples = 1000
+        # rng = default_rng()
+        # dof = 100
+        # no_samples = 1000
 
-        # assert len(preds) > dof*no_samples, 'DoF*no_samples and len(preds) are {} {}'.format(dof*no_samples, len(preds))
+        # # assert len(preds) > dof*no_samples, 'DoF*no_samples and len(preds) are {} {}'.format(dof*no_samples, len(preds))
 
-        chi_sq_samples = []
+        # chi_sq_samples = []
 
-        for i in range(no_samples):            
-            indices = rng.choice(len(preds), size = dof, replace = False)
-            chi_sq_variable = (preds[indices] - gts[indices])**2 / variance[indices]
-            chi_sq_samples.append(chi_sq_variable.sum())
+        # for i in range(no_samples):            
+        #     indices = rng.choice(len(preds), size = dof, replace = False)
+        #     chi_sq_variable = (preds[indices] - gts[indices])**2 / variance[indices]
+        #     chi_sq_samples.append(chi_sq_variable.sum())
 
-        chi_sq_samples = torch.stack(chi_sq_samples)
+        # chi_sq_samples = torch.stack(chi_sq_samples)
 
-        emp_mean = chi_sq_samples.mean()
-        emp_var = chi_sq_samples.var()
-        gt_mean = dof
-        gt_variance = 2*dof
+        # emp_mean = chi_sq_samples.mean()
+        # emp_var = chi_sq_samples.var()
+        # gt_mean = dof
+        # gt_variance = 2*dof
 
-        mu1 = gt_mean
-        mu2 = emp_mean
-        var1 = gt_variance
-        var2 = emp_var
+        # mu1 = gt_mean
+        # mu2 = emp_mean
+        # var1 = gt_variance
+        # var2 = emp_var
 
-        actual_dist = torch.distributions.normal.Normal(mu1, var1**(0.5))
-        our_dist = torch.distributions.normal.Normal(mu2, var2**(0.5))
+        # actual_dist = torch.distributions.normal.Normal(mu1, var1**(0.5))
+        # our_dist = torch.distributions.normal.Normal(mu2, var2**(0.5))
 
-        print("Emp mean and emp variance are {} {}".format(mu2, var2))
+        # print("Emp mean and emp variance are {} {}".format(mu2, var2))
 
-        # kldivergence = (torch.log(var2 / var1) + ( var1 + (mu1 - mu2)**2 ) / var2)/2.0
-        # kldivergence = (torch.log(var1 / var2) + ( var2 + (mu2 - mu1)**2 ) / var1)/2.0 + (torch.log(var2 / var1) + ( var1 + (mu1 - mu2)**2 ) / var2)/2.0
-        # bhattcharya_distance = 0.25 * torch.log(0.25 * (var1/var2 + var2/var1 + 2)) + 0.25 * ((mu1 - mu2)**2/(var1 + var2))
+        # # kldivergence = (torch.log(var2 / var1) + ( var1 + (mu1 - mu2)**2 ) / var2)/2.0
+        # # kldivergence = (torch.log(var1 / var2) + ( var2 + (mu2 - mu1)**2 ) / var1)/2.0 + (torch.log(var2 / var1) + ( var1 + (mu1 - mu2)**2 ) / var2)/2.0
+        # # bhattcharya_distance = 0.25 * torch.log(0.25 * (var1/var2 + var2/var1 + 2)) + 0.25 * ((mu1 - mu2)**2/(var1 + var2))
         
 
-        ## hardcoded weight annealing!
-        if self.curr_iteration < 1500:
-            kldivergence = torch.distributions.kl.kl_divergence(our_dist, actual_dist) / dof
-        elif 1500 < self.curr_iteration < 3000:
-            kldivergence = 10.0 * torch.distributions.kl.kl_divergence(our_dist, actual_dist) / dof
-        else:
-            kldivergence = torch.distributions.kl.kl_divergence(our_dist, actual_dist)
-        # if kldivergence > 50:
-        # kldivergence = kldivergence / dof ## just normalizing
 
-        # if kldivergence < 0.005:
-        #     kldivergence = kldivergence * len(preds) ## just normalizing
+        # kldivergence = torch.distributions.kl.kl_divergence(our_dist, actual_dist) / dof
+        # # if kldivergence > 50:
+        # # kldivergence = kldivergence / dof ## just normalizing
 
-        print("KL divergence, smooth_l1 losses and current itrations are {}, {} and {}".format(kldivergence, loss_box_reg, self.curr_iteration))
+        # # if kldivergence < 0.005:
+        # #     kldivergence = kldivergence * len(preds) ## just normalizing
 
-        return kldivergence + loss_box_reg
+        # print("KL divergence, smooth_l1 losses and current itrations are {}, {} and {}".format(kldivergence, loss_box_reg, self.curr_iteration))
+
+        # return kldivergence + loss_box_reg
+        return 0
 
     def smooth_l1_loss(self):
         """
