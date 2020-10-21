@@ -289,7 +289,7 @@ class FastRCNNOutputs(object):
         assert not self.proposals.tensor.requires_grad, "Proposals should not require gradients!"
         self.image_shapes = [x.image_size for x in proposals]
         self.total_iterations = total_iterations
-        self.annealing_weights = np.arange(0.0, 1.05, 0.05)
+        self.annealing_weights = np.arange(0.01, 0.21, 0.01)
 
         global curr_iteration
         curr_iteration = curr_iteration + 1 
@@ -596,6 +596,8 @@ class FastRCNNOutputs(object):
         Returns:
             scalar Tensor
         """
+
+
         gt_proposal_deltas = self.box2box_transform.get_deltas(self.proposals.tensor, self.gt_boxes.tensor)
         box_dim = gt_proposal_deltas.size(1)  # 4 or 5
         cls_agnostic_bbox_reg = self.pred_proposal_deltas.size(1) == box_dim
@@ -677,6 +679,129 @@ class FastRCNNOutputs(object):
 
     def kl_batch_plus_smoothl1(self):
         """
+        Apply KL divergence + smoothl1 over the batch
+
+        Returns:
+            scalar Tensor
+        """
+
+        curr_weight_index = np.min([int(self.curr_iteration / self.increment_val), len(self.annealing_weights) - 1])
+        annealing_weight =  0.01
+        print("Annealing weight is: {}".format(annealing_weight))
+        # if annealing_weight > 1.0:
+        #     annealing_weight = 1.0
+
+        gt_proposal_deltas = self.box2box_transform.get_deltas(self.proposals.tensor, self.gt_boxes.tensor)
+        box_dim = gt_proposal_deltas.size(1)  # 4 or 5
+        cls_agnostic_bbox_reg = self.pred_proposal_deltas.size(1) == box_dim
+        device = self.pred_proposal_deltas.device
+
+        bg_class_ind = self.pred_class_logits.shape[1] - 1
+
+        # Box delta loss is only computed between the prediction for the gt class k
+        # (if 0 <= k < bg_class_ind) and the target; there is no loss defined on predictions
+        # for non-gt classes and background.
+        # Empty fg_inds produces a valid loss of zero as long as the size_average
+        # arg to smooth_l1_loss is False (otherwise it uses torch.mean internally
+        # and would produce a nan loss).
+        fg_inds = torch.nonzero((self.gt_classes >= 0) & (self.gt_classes < bg_class_ind)).squeeze(
+            1
+        )
+        if cls_agnostic_bbox_reg:
+            # pred_proposal_deltas only corresponds to foreground class for agnostic
+            gt_class_cols = torch.arange(box_dim, device=device)
+        else:
+            fg_gt_classes = self.gt_classes[fg_inds]
+            # pred_proposal_deltas for class k are located in columns [b * k : b * k + b],
+            # where b is the dimension of box representation (4 or 5)
+            # Note that compared to Detectron1,
+            # we do not perform bounding box regression for background classes.
+            gt_class_cols = box_dim * fg_gt_classes[:, None] + torch.arange(box_dim, device=device)
+
+
+        ##############################################################################################################################################################################
+
+        ## very dangerous piece of code, do not uncomment it without expert supervision
+
+        # our_imp_stuff = ((self.pred_proposal_deltas[fg_inds[:, None], gt_class_cols] - gt_proposal_deltas[fg_inds])**2/(self.pred_proposal_uncertain[fg_inds[:, None], gt_class_cols]))
+        # our_stuff = our_imp_stuff.detach().clone().cpu().numpy()
+        # global dist_save
+        # if dist_save is 0:
+        #     dist_save = our_stuff
+        # else: 
+        #     dist_save = np.concatenate((dist_save, our_stuff),axis=0)
+
+        # if self.curr_iteration == 500:
+        #     print("The shape of dist_save is: {}".format(dist_save.shape))
+        #     np.save(f'/network/tmp1/bhattdha/detectron2_cityscapes/kl_plus_smoothl1_unfrozen_high_lr/unigaussians_unfrozen_high_lr.npy', np.array(dist_save))
+        #     import sys; sys.exit(0)
+
+        ##############################################################################################################################################################################
+
+        ## smooth l1
+        loss_box_reg = smooth_l1_loss(
+            self.pred_proposal_deltas[fg_inds[:, None], gt_class_cols],
+            gt_proposal_deltas[fg_inds],
+            self.smooth_l1_beta,
+            reduction="sum",
+        )
+        loss_box_reg = loss_box_reg / self.gt_classes.numel()
+
+
+        ## Computing KL-divergence
+        preds = self.pred_proposal_deltas[fg_inds[:, None], gt_class_cols].flatten()
+        gts = gt_proposal_deltas[fg_inds].flatten()
+        variance = self.pred_proposal_uncertain[fg_inds[:, None], gt_class_cols].flatten()
+
+        rng = default_rng()
+        dof = 100
+        no_samples = 1000
+
+        # assert len(preds) > dof*no_samples, 'DoF*no_samples and len(preds) are {} {}'.format(dof*no_samples, len(preds))
+
+        chi_sq_samples = []
+
+        for i in range(no_samples):            
+            indices = rng.choice(len(preds), size = dof, replace = False)
+            chi_sq_variable = (preds[indices] - gts[indices])**2 / variance[indices]
+            chi_sq_samples.append(chi_sq_variable.sum())
+
+        chi_sq_samples = torch.stack(chi_sq_samples)
+
+        emp_mean = chi_sq_samples.mean()
+        emp_var = chi_sq_samples.var()
+        gt_mean = dof
+        gt_variance = 2*dof
+
+        mu1 = gt_mean
+        mu2 = emp_mean
+        var1 = gt_variance
+        var2 = emp_var
+
+        actual_dist = torch.distributions.normal.Normal(mu1, var1**(0.5))
+        our_dist = torch.distributions.normal.Normal(mu2, var2**(0.5))
+
+        print("Emp mean and emp variance are {} {}".format(mu2, var2))
+
+        # kldivergence = (torch.log(var2 / var1) + ( var1 + (mu1 - mu2)**2 ) / var2)/2.0
+        # kldivergence = (torch.log(var1 / var2) + ( var2 + (mu2 - mu1)**2 ) / var1)/2.0 + (torch.log(var2 / var1) + ( var1 + (mu1 - mu2)**2 ) / var2)/2.0
+        # bhattcharya_distance = 0.25 * torch.log(0.25 * (var1/var2 + var2/var1 + 2)) + 0.25 * ((mu1 - mu2)**2/(var1 + var2))
+        
+
+
+        kldivergence = torch.distributions.kl.kl_divergence(our_dist, actual_dist) * annealing_weight
+        # if kldivergence > 50:
+        # kldivergence = kldivergence / dof ## just normalizing
+
+        # if kldivergence < 0.005:
+        #     kldivergence = kldivergence * len(preds) ## just normalizing
+
+        print("KL divergence, smooth_l1 losses and current itrations are {}, {} and {}".format(kldivergence, loss_box_reg, self.curr_iteration))
+
+        return kldivergence + loss_box_reg
+
+    def wasserstein_batch_plus_smoothl1(self):
+        """
         Apply KL divergence + loss attenuation over the batch
 
         Returns:
@@ -714,83 +839,68 @@ class FastRCNNOutputs(object):
 
         ## very dangerous piece of code, do not uncomment it without expert supervision
 
-        our_imp_stuff = ((self.pred_proposal_deltas[fg_inds[:, None], gt_class_cols] - gt_proposal_deltas[fg_inds])**2/(self.pred_proposal_uncertain[fg_inds[:, None], gt_class_cols]))
-        our_stuff = our_imp_stuff.detach().clone().cpu().numpy()
-        global dist_save
-        if dist_save is 0:
-            dist_save = our_stuff
-        else: 
-            dist_save = np.concatenate((dist_save, our_stuff),axis=0)
+        # our_imp_stuff = ((self.pred_proposal_deltas[fg_inds[:, None], gt_class_cols] - gt_proposal_deltas[fg_inds])**2/(self.pred_proposal_uncertain[fg_inds[:, None], gt_class_cols]))
+        # our_stuff = our_imp_stuff.detach().clone().cpu().numpy()
+        # global dist_save
+        # if dist_save is 0:
+        #     dist_save = our_stuff
+        # else: 
+        #     dist_save = np.concatenate((dist_save, our_stuff),axis=0)
 
-        if self.curr_iteration == 500:
-            print("The shape of dist_save is: {}".format(dist_save.shape))
-            np.save(f'/home/mila/b/bhattdha/detectron2/unigaussians_loss_att_model_cityscapes.npy', np.array(dist_save))
-            import sys; sys.exit(0)
+        # if self.curr_iteration == 500:
+        #     print("The shape of dist_save is: {}".format(dist_save.shape))
+        #     np.save(f'/home/mila/b/bhattdha/detectron2/unigaussians_loss_att_model_cityscapes.npy', np.array(dist_save))
+        #     import sys; sys.exit(0)
 
         ##############################################################################################################################################################################
 
         # ## smooth l1
-        # loss_box_reg = smooth_l1_loss(
-        #     self.pred_proposal_deltas[fg_inds[:, None], gt_class_cols],
-        #     gt_proposal_deltas[fg_inds],
-        #     self.smooth_l1_beta,
-        #     reduction="sum",
-        # )
-        # loss_box_reg = loss_box_reg / self.gt_classes.numel()
+        loss_box_reg = smooth_l1_loss(
+            self.pred_proposal_deltas[fg_inds[:, None], gt_class_cols],
+            gt_proposal_deltas[fg_inds],
+            self.smooth_l1_beta,
+            reduction="sum",
+        )
+        loss_box_reg = loss_box_reg / self.gt_classes.numel()
 
 
-        # ## Computing KL-divergence
-        # preds = self.pred_proposal_deltas[fg_inds[:, None], gt_class_cols].flatten()
-        # gts = gt_proposal_deltas[fg_inds].flatten()
-        # variance = self.pred_proposal_uncertain[fg_inds[:, None], gt_class_cols].flatten()
+        ## Computing KL-divergence
+        preds = self.pred_proposal_deltas[fg_inds[:, None], gt_class_cols].flatten()
+        gts = gt_proposal_deltas[fg_inds].flatten()
+        variance = self.pred_proposal_uncertain[fg_inds[:, None], gt_class_cols].flatten()
 
-        # rng = default_rng()
-        # dof = 100
-        # no_samples = 1000
+        rng = default_rng()
+        dof = 100
+        no_samples = 1000
 
-        # # assert len(preds) > dof*no_samples, 'DoF*no_samples and len(preds) are {} {}'.format(dof*no_samples, len(preds))
+        # assert len(preds) > dof*no_samples, 'DoF*no_samples and len(preds) are {} {}'.format(dof*no_samples, len(preds))
 
-        # chi_sq_samples = []
+        chi_sq_samples = []
 
-        # for i in range(no_samples):            
-        #     indices = rng.choice(len(preds), size = dof, replace = False)
-        #     chi_sq_variable = (preds[indices] - gts[indices])**2 / variance[indices]
-        #     chi_sq_samples.append(chi_sq_variable.sum())
+        for i in range(no_samples):            
+            indices = rng.choice(len(preds), size = dof, replace = False)
+            chi_sq_variable = (preds[indices] - gts[indices])**2 / variance[indices]
+            chi_sq_samples.append(chi_sq_variable.sum())
 
-        # chi_sq_samples = torch.stack(chi_sq_samples)
+        chi_sq_samples = torch.stack(chi_sq_samples)
 
-        # emp_mean = chi_sq_samples.mean()
-        # emp_var = chi_sq_samples.var()
-        # gt_mean = dof
-        # gt_variance = 2*dof
+        emp_mean = chi_sq_samples.mean()
+        emp_var = chi_sq_samples.var()
+        gt_mean = dof
+        gt_variance = 2*dof
 
-        # mu1 = gt_mean
-        # mu2 = emp_mean
-        # var1 = gt_variance
-        # var2 = emp_var
+        mu1 = gt_mean
+        mu2 = emp_mean
+        var1 = gt_variance
+        var2 = emp_var
 
-        # actual_dist = torch.distributions.normal.Normal(mu1, var1**(0.5))
-        # our_dist = torch.distributions.normal.Normal(mu2, var2**(0.5))
+        ## wasserstein distance between two Gaussians
+        wasserstein_distance = ((mu1 - mu2)**2 + var1 + var2 - 2*((var1*var2).sqrt())) / dof**2
 
-        # print("Emp mean and emp variance are {} {}".format(mu2, var2))
+        print("Wasserstein distance, smooth_l1 losses and current itrations are {}, {} and {}".format(wasserstein_distance, loss_box_reg, self.curr_iteration))
 
-        # # kldivergence = (torch.log(var2 / var1) + ( var1 + (mu1 - mu2)**2 ) / var2)/2.0
-        # # kldivergence = (torch.log(var1 / var2) + ( var2 + (mu2 - mu1)**2 ) / var1)/2.0 + (torch.log(var2 / var1) + ( var1 + (mu1 - mu2)**2 ) / var2)/2.0
-        # # bhattcharya_distance = 0.25 * torch.log(0.25 * (var1/var2 + var2/var1 + 2)) + 0.25 * ((mu1 - mu2)**2/(var1 + var2))
-        
+        return wasserstein_distance + loss_box_reg
 
-
-        # kldivergence = torch.distributions.kl.kl_divergence(our_dist, actual_dist) / dof
-        # # if kldivergence > 50:
-        # # kldivergence = kldivergence / dof ## just normalizing
-
-        # # if kldivergence < 0.005:
-        # #     kldivergence = kldivergence * len(preds) ## just normalizing
-
-        # print("KL divergence, smooth_l1 losses and current itrations are {}, {} and {}".format(kldivergence, loss_box_reg, self.curr_iteration))
-
-        # return kldivergence + loss_box_reg
-        return 0
 
     def smooth_l1_loss(self):
         """
@@ -880,6 +990,9 @@ class FastRCNNOutputs(object):
         elif self.loss_type == 'kl_batch_plus_smoothl1':
             loss_name = 'kl_batch_plus_smoothl1'
             loss_reg = self.kl_batch_plus_smoothl1()
+        elif self.loss_type == 'wasserstein_batch_plus_smoothl1':
+            loss_name = 'wasserstein_batch_plus_smoothl1'
+            loss_reg = self.wasserstein_batch_plus_smoothl1()
 
             # loss_reg = self.loss_attenuation()
 
