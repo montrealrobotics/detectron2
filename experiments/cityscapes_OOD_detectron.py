@@ -48,31 +48,32 @@ cfg_rpn.MODEL.META_ARCHITECTURE = "ProposalNetwork"
 
 # loading config used during train time
 # cfg_dict = torch.load('/network/tmp1/bhattdha/detectron2_kitti/resnet-50_FPN/resnet-50_FPN_cfg.final')
-cfg_dict = torch.load('/network/tmp1/bhattdha/detectron2_cityscapes/resnet-101_cityscapes/resnet-101_cityscapes_cfg.final')
+cfg_dict = torch.load('/miniscratch/bhattdha/mask_rcnn_mask_on_frozen_loss_att/mask_rcnn_mask_on_frozen_loss_att_cfg.final')
 
 cfg = cfg_dict['cfg']
 cfg.MODEL.RPN.POST_NMS_TOPK_TEST = 1000
+cfg.MODEL.MASK_ON = False
 # cfg.INPUT.MIN_SIZE_TEST = 400
 # cfg.INPUT.MAX_SIZE_TEST = 800
 
-cfg.OUTPUT_DIR = '/network/tmp1/bhattdha/detectron2_cityscapes/resnet-101_cityscapes/'
+cfg.OUTPUT_DIR = '/miniscratch/bhattdha/mask_rcnn_mask_on_frozen_loss_att/'
 # cfg.OUTPUT_DIR = '/network/tmp1/bhattdha/detectron2_kitti/resnet-50_FPN/'
 # import pdb; pdb.set_trace()
 
 """Now, we perform inference with the trained model on the kitti dataset. First, let's create a predictor using the model we just trained:"""
 # cfg.MODEL.META_ARCHITECTURE = "ProposalNetwork"
-cfg.MODEL.WEIGHTS = os.path.join(cfg.OUTPUT_DIR, "model_0249999.pth")
-cfg.MODEL.ROI_HEADS.SCORE_THRESH_TEST = 0.7   # set the testing threshold for this model
-# cfg.OUTPUT_DIR = '/network/tmp1/bhattdha/detectron2_kitti/' + dir_name
+cfg.MODEL.WEIGHTS = os.path.join(cfg.OUTPUT_DIR, "model_0039999.pth")
+cfg.MODEL.ROI_HEADS.SCORE_THRESH_TEST = 0.4   # set the testing threshold for this model
+    # cfg.OUTPUT_DIR = '/network/tmp1/bhattdha/detectron2_kitti/' + dir_name
 
 if cfg.CUSTOM_OPTIONS.DETECTOR_TYPE is 'deterministic':
     ## has to be smooth l1 loss if detector is deterministc
     cfg.CUSTOM_OPTIONS.LOSS_TYPE_REG = 'smooth_l1'
 
-thresh_dict = np.load('/home/mila/b/bhattdha/detectron2/generative_classifier/maha_thresh_cityscapes.npy',allow_pickle = True)[()]
+thresh_dict = np.load('/miniscratch/bhattdha/mask_rcnn_mask_on_frozen_loss_att/mask_rcnn_mask_on_frozen_loss_att.npy',allow_pickle = True)[()]
 means = thresh_dict['gaussian_stats']['means']
 covars = thresh_dict['gaussian_stats']['covars']
-maha_dist_thresh = thresh_dict['maha_thresh'][80] ## threshold for 95% accuracy on validation accuracy
+maha_dist_thresh = thresh_dict['maha_thresh'][95] ## threshold for 95% accuracy on validation accuracy
 predictor = DefaultPredictor(cfg)
 rpn_pred = DefaultPredictor(cfg_rpn)
 from detectron2.utils.visualizer import ColorMode
@@ -132,6 +133,7 @@ def filter_wrong_oods(detected_objects, ood_outputs):
 
 for ind, image_path in enumerate(all_image_paths):
     print("On image: ", image_path)
+    image_name = os.path.basename(image_path)
     im = cv2.imread(image_path)
     ## here comes the OOD detection(finger crossed)
     ## full model execution
@@ -182,7 +184,7 @@ for ind, image_path in enumerate(all_image_paths):
 
     ### 5. Going through RoI heads, imp stuff coming in! ###
     features_list = [features[f] for f in predictor.model.roi_heads.in_features]
-    box_features = predictor.model.roi_heads.box_pooler(features_list, [x.proposal_boxes for x in coco_prop_rpn])
+    box_features = predictor.model.roi_heads.box_pooler(features_list, [x.proposal_boxes for x in proposals])
     box_features = predictor.model.roi_heads.box_head(box_features)
 
     ### 6. Finding OODs now that we have embeddings ###
@@ -213,8 +215,8 @@ for ind, image_path in enumerate(all_image_paths):
     im_post_detection = v.get_image()[:, :, ::-1]
     
     
-    boxes_out = coco_prop_rpn_processed[0]['proposals'].get('proposal_boxes').tensor.clone()
-    boxes_scores = torch.sigmoid(coco_prop_rpn_processed[0]['proposals'].get('objectness_logits').clone()) 
+    boxes_out = processed_results[0]['proposals'].get('proposal_boxes').tensor.clone()
+    boxes_scores = torch.sigmoid(processed_results[0]['proposals'].get('objectness_logits').clone()) 
     boxes_out = boxes_out[ood_indices, :]  
     boxes_scores = boxes_scores[ood_indices]
     boxes_after_nms_inds = torchvision.ops.nms(boxes_out, boxes_scores, 0.5)
@@ -248,6 +250,6 @@ for ind, image_path in enumerate(all_image_paths):
 
     im_new[im.shape[0]:2*im.shape[0], :,:] = im        
 
-    cv2.imwrite('/network/tmp1/bhattdha/denso_dataset/ood_output_diff_proposal_network/' + str(ind).zfill(6) + '.png', im_new) 
+    cv2.imwrite('/miniscratch/bhattdha/mask_rcnn_mask_on_frozen_loss_att/ood_outputs/' + image_name, im_new) 
     # import ipdb; ipdb.set_trace()
 import ipdb; ipdb.set_trace()
