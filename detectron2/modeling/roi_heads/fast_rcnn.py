@@ -580,7 +580,7 @@ class FastRCNNOutputs(object):
 
         return kldivergence
 
-    def kl_div_standard_normal_closed_from(self):
+    def kl_div_standard_normal_closed_form(self):
         """
         Apply KL divergence loss over standard normal distribution
 
@@ -636,10 +636,11 @@ class FastRCNNOutputs(object):
         our_dist = torch.distributions.normal.Normal(mu2, var2**(0.5))
 
         print("Emp mean and emp variance are {} {}".format(mu2, var2))
+
+        # https://pytorch.org/docs/stable/_modules/torch/distributions/kl.html#kl_divergence
         kldivergence = torch.distributions.kl.kl_divergence(our_dist, actual_dist) / dof
 
         return kldivergence
-
 
     def kl_div_chi_sq_empirical(self):
         """
@@ -719,7 +720,6 @@ class FastRCNNOutputs(object):
         kldivergence = torch.nn.KLDivLoss(our_log_probs, true_log_probs, log_target = True, reduction = 'mean')
 
         return kldivergence
-
 
     def kl_div_standard_normal_empirical(self):
         """
@@ -865,7 +865,7 @@ class FastRCNNOutputs(object):
 
         return jsdivergence
 
-    def js_div_standard_normal_closed_from(self):
+    def js_div_standard_normal_closed_form(self):
         """
         Apply JS divergence loss over standard normal distribution
 
@@ -929,7 +929,6 @@ class FastRCNNOutputs(object):
         jsdivergence = (torch.distributions.kl.kl_divergence(our_dist, mix_dist) +  torch.distributions.kl.kl_divergence(actual_dist, mix_dist) )/ 2*dof
 
         return jsdivergence
-
 
     def js_div_chi_sq_empirical(self):
         """
@@ -1011,7 +1010,6 @@ class FastRCNNOutputs(object):
         jsdivergence = (torch.nn.KLDivLoss(our_log_probs, mix_log_probs, log_target = True, reduction = 'mean') +  torch.nn.KLDivLoss(true_log_probs, mix_log_probs, log_target = True, reduction = 'mean')) / 2.0
 
         return jsdivergence
-
 
     def js_div_standard_normal_empirical(self):
         """
@@ -1149,6 +1147,17 @@ class FastRCNNOutputs(object):
             A dict of losses (scalar tensors) containing keys "loss_cls" and "loss_attenuation_final".
         """
 
+        """
+        kl_div_chi_sq_closed_form_plus_smoothl1
+        kl_div_standard_normal_closed_form_plus_smoothl1
+        kl_div_chi_sq_empirical_plus_smoothl1
+        kl_div_standard_normal_empirical_plus_smoothl1
+        js_div_chi_sq_closed_form_plus_smoothl1
+        js_div_standard_normal_closed_form_plus_smoothl1
+        js_div_chi_sq_empirical_plus_smoothl1
+        js_div_standard_normal_empirical_plus_smoothl1
+        """
+
         if self.loss_type == 'smooth_l1':
             loss_name = 'smooth_l1_loss'
             loss_reg = self.smooth_l1_loss()
@@ -1161,18 +1170,31 @@ class FastRCNNOutputs(object):
         elif self.loss_type == 'mahalanobis_attenuation':
             loss_name = 'mahalanobis_loss_attenuation'
             loss_reg = self.mahalanobis_loss_attenuation()
-        elif self.loss_type == 'kl_divergence_batch_closedform_loss':
-            loss_name = 'kl_divergence_batch_closedform_loss'
-            loss_reg = self.kl_divergence_batch_closedform_loss()
-        elif self.loss_type == 'kl_closedform_plus_loss_att':
-            loss_name = 'kl_closedform_plus_loss_att'
-            loss_reg = self.kl_divergence_batch_closedform_loss() + self.loss_attenuation()
-        elif self.loss_type == 'kl_closedform_plus_smoothl1':
-            loss_name = 'kl_closedform_plus_smoothl1'
-            loss_reg = self.kl_divergence_batch_closedform_loss() + self.smooth_l1()
-        elif self.loss_type == 'wasserstein_batch_plus_smoothl1':
-            loss_name = 'wasserstein_batch_plus_smoothl1'
-            loss_reg = self.wasserstein_batch_plus_smoothl1()
+        elif self.loss_type == 'kl_div_chi_sq_closed_form_plus_smoothl1':
+            loss_name = self.loss_type
+            loss_reg = self.kl_div_chi_sq_closed_form() + self.smooth_l1()
+        elif self.loss_type == 'kl_div_standard_normal_closed_form_plus_smoothl1':
+            loss_name = self.loss_type
+            loss_reg = self.kl_div_standard_normal_closed_form() + self.smooth_l1()
+        elif self.loss_type == 'kl_div_chi_sq_empirical_plus_smoothl1':
+            loss_name = self.loss_type
+            loss_reg = self.kl_div_chi_sq_empirical() + self.smooth_l1()
+        elif self.loss_type == 'kl_div_standard_normal_empirical_plus_smoothl1':
+            loss_name = self.loss_type
+            loss_reg = self.kl_div_standard_normal_empirical() + self.smooth_l1()
+        elif self.loss_type == 'js_div_chi_sq_closed_form_plus_smoothl1':
+            loss_name = self.loss_type
+            loss_reg = self.js_div_chi_sq_closed_form() + self.smooth_l1()
+        elif self.loss_type == 'js_div_standard_normal_closed_form_plus_smoothl1':
+            loss_name = self.loss_type
+            loss_reg = self.js_div_standard_normal_closed_form() + self.smooth_l1()
+        elif self.loss_type == 'js_div_chi_sq_empirical_plus_smoothl1':
+            loss_name = self.loss_type
+            loss_reg = self.js_div_chi_sq_empirical() + self.smooth_l1()
+        elif self.loss_type == 'js_div_standard_normal_empirical_plus_smoothl1':
+            loss_name = self.loss_type
+            loss_reg = self.js_div_standard_normal_empirical() + self.smooth_l1()
+        
 
             # loss_reg = self.loss_attenuation()
 
