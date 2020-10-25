@@ -599,7 +599,7 @@ loss type regression when DETECTOR_TYPE is probabilistic: ['smooth_l1',
 _C.CUSTOM_OPTIONS.LOSS_TYPE_REG = 'loss_att'
 
 ## parameters for richard's curve
-_C.CUSTOM_OPTIONS.RICHARD_CURVE_LOW = 0
+_C.CUSTOM_OPTIONS.RICHARD_CURVE_LOW = 1e-20
 _C.CUSTOM_OPTIONS.RICHARD_CURVE_HIGH = 50
 _C.CUSTOM_OPTIONS.RICHARD_CURVE_SHARP = 0.15
 
