@@ -547,8 +547,8 @@ class FastRCNNOutputs(object):
         variance = self.pred_proposal_uncertain[fg_inds[:, None], gt_class_cols].flatten()
 
         rng = default_rng()
-        dof = 100
-        no_samples = 1000
+        dof = 75
+        no_samples = 100
 
         # assert len(preds) > dof*no_samples, 'DoF*no_samples and len(preds) are {} {}'.format(dof*no_samples, len(preds))
 
@@ -566,9 +566,9 @@ class FastRCNNOutputs(object):
         gt_mean = dof
         gt_variance = 2*dof
 
-        mu1 = gt_mean
+        mu1 = gt_mean*torch.ones_like(emp_mean)
         mu2 = emp_mean
-        var1 = gt_variance
+        var1 = gt_variance*torch.ones_like(emp_var)
         var2 = emp_var
 
         actual_dist = torch.distributions.normal.Normal(mu1, var1**(0.5))
@@ -627,9 +627,9 @@ class FastRCNNOutputs(object):
         gt_mean = 0
         gt_variance = 1
 
-        mu1 = gt_mean
+        mu1 = gt_mean*torch.ones_like(emp_mean)
         mu2 = emp_mean
-        var1 = gt_variance
+        var1 = gt_variance*torch.ones_like(emp_var)
         var2 = emp_var
 
         actual_dist = torch.distributions.normal.Normal(mu1, var1**(0.5))
@@ -638,7 +638,7 @@ class FastRCNNOutputs(object):
         print("Emp mean and emp variance are {} {}".format(mu2, var2))
 
         # https://pytorch.org/docs/stable/_modules/torch/distributions/kl.html#kl_divergence
-        kldivergence = torch.distributions.kl.kl_divergence(our_dist, actual_dist) / dof
+        kldivergence = torch.distributions.kl.kl_divergence(our_dist, actual_dist) 
 
         return kldivergence
 
@@ -683,8 +683,8 @@ class FastRCNNOutputs(object):
         variance = self.pred_proposal_uncertain[fg_inds[:, None], gt_class_cols].flatten()
 
         rng = default_rng()
-        dof = 100
-        no_samples = 1000
+        dof = 75
+        no_samples = 100
 
         # assert len(preds) > dof*no_samples, 'DoF*no_samples and len(preds) are {} {}'.format(dof*no_samples, len(preds))
 
@@ -702,22 +702,28 @@ class FastRCNNOutputs(object):
         gt_mean = dof
         gt_variance = 2*dof
 
-        mu1 = gt_mean
+        mu1 = gt_mean*torch.ones_like(emp_mean)
         mu2 = emp_mean
-        var1 = gt_variance
+        var1 = gt_variance*torch.ones_like(emp_var)
         var2 = emp_var
 
         actual_dist = torch.distributions.normal.Normal(mu1, var1**(0.5))
         our_dist = torch.distributions.normal.Normal(mu2, var2**(0.5))
 
-        our_log_probs = our_dist.log_prob(chi_sq_samples)
+        actual_log_probs = our_dist.log_prob(chi_sq_samples)
         true_log_probs = actual_dist.log_prob(chi_sq_samples)
+
+        ### we have to normalize the distribution since it's made from density of continuous distribution samples
+        actual_probs = actual_log_probs.exp()
+        actual_normalized_log_probs = torch.log(actual_probs / torch.sum(actual_probs))
+        true_probs = true_log_probs.exp()
+        true_normalized_log_probs = torch.log(true_probs / torch.sum(true_probs))
 
         print("Emp mean and emp variance are {} {}".format(mu2, var2))
 
         ## refer this to understand arguments of empirical KL divergence!
         ## https://pytorch.org/docs/stable/_modules/torch/nn/modules/loss.html#KLDivLoss
-        kldivergence = torch.nn.KLDivLoss(our_log_probs, true_log_probs, log_target = True, reduction = 'mean')
+        kldivergence = torch.nn.KLDivLoss(actual_normalized_log_probs, true_normalized_log_probs, log_target = True, reduction = 'mean')
 
         return kldivergence
 
@@ -769,20 +775,25 @@ class FastRCNNOutputs(object):
         gt_mean = 0
         gt_variance = 1
 
-        mu1 = gt_mean
+        mu1 = gt_mean*torch.ones_like(emp_mean)
         mu2 = emp_mean
-        var1 = gt_variance
+        var1 = gt_variance*torch.ones_like(emp_var)
         var2 = emp_var
 
         actual_dist = torch.distributions.normal.Normal(mu1, var1**(0.5))
         our_dist = torch.distributions.normal.Normal(mu2, var2**(0.5))
 
-        our_log_probs = our_dist.log_prob(std_normal_samples)
+        actual_log_probs = our_dist.log_prob(std_normal_samples)
         true_log_probs = actual_dist.log_prob(std_normal_samples)
+
+        actual_probs = actual_log_probs.exp()
+        actual_normalized_log_probs = torch.log(actual_probs / torch.sum(actual_probs))
+        true_probs = true_log_probs.exp()
+        true_normalized_log_probs = torch.log(true_probs / torch.sum(true_probs))
 
         print("Emp mean and emp variance are {} {}".format(mu2, var2))
 
-        kldivergence = torch.nn.KLDivLoss(our_log_probs, true_log_probs, log_target = True, reduction = 'mean')
+        kldivergence = torch.nn.KLDivLoss(actual_normalized_log_probs, true_normalized_log_probs, log_target = True, reduction = 'mean')
 
         return kldivergence
 
@@ -827,8 +838,8 @@ class FastRCNNOutputs(object):
         variance = self.pred_proposal_uncertain[fg_inds[:, None], gt_class_cols].flatten()
 
         rng = default_rng()
-        dof = 100
-        no_samples = 1000
+        dof = 75
+        no_samples = 100
 
         # assert len(preds) > dof*no_samples, 'DoF*no_samples and len(preds) are {} {}'.format(dof*no_samples, len(preds))
 
@@ -846,9 +857,9 @@ class FastRCNNOutputs(object):
         gt_mean = dof
         gt_variance = 2*dof
 
-        mu1 = gt_mean
+        mu1 = gt_mean*torch.ones_like(emp_mean)
         mu2 = emp_mean
-        var1 = gt_variance
+        var1 = gt_variance*torch.ones_like(emp_var)
         var2 = emp_var
 
         mu_mix = (mu1 + mu2) / 2.0
@@ -861,7 +872,7 @@ class FastRCNNOutputs(object):
 
         print("Emp mean and emp variance are {} {}".format(mu2, var2))
 
-        jsdivergence = (torch.distributions.kl.kl_divergence(our_dist, mix_dist) +  torch.distributions.kl.kl_divergence(actual_dist, mix_dist) )/ 2*dof
+        jsdivergence = (torch.distributions.kl.kl_divergence(our_dist, mix_dist) +  torch.distributions.kl.kl_divergence(actual_dist, mix_dist) )/ 200*dof
 
         return jsdivergence
 
@@ -905,6 +916,26 @@ class FastRCNNOutputs(object):
         gts = gt_proposal_deltas[fg_inds].flatten()
         variance = self.pred_proposal_uncertain[fg_inds[:, None], gt_class_cols].flatten()
 
+        ##############################################################################################################################################################################
+
+        ## very dangerous piece of code, do not uncomment it without expert supervision
+
+        # std_normal_samples = (gts - preds) / variance.sqrt()
+        # our_stuff = std_normal_samples.detach().clone().cpu().numpy()
+        # global dist_save
+        # if dist_save is 0:
+        #     dist_save = our_stuff
+        # else: 
+        #     dist_save = np.concatenate((dist_save, our_stuff),axis=0)
+
+        # if self.curr_iteration == 100:
+        #     print("The shape of dist_save is: {}".format(dist_save.shape))
+        #     np.save(f'/network/tmp1/bhattdha/detectron2_cityscapes/js_div_standard_normal_closed_form_plus_smoothl1/unigaussians_js_div_standard_normal_closed_form_plus_smoothl1.npy', np.array(dist_save))
+        #     import sys; sys.exit(0)
+
+
+        ##############################################################################################################################################################################
+
         std_normal_samples = (gts - preds) / variance.sqrt()
 
         emp_mean = std_normal_samples.mean()
@@ -912,9 +943,9 @@ class FastRCNNOutputs(object):
         gt_mean = 0
         gt_variance = 1
 
-        mu1 = gt_mean
+        mu1 = gt_mean*torch.ones_like(emp_mean)
         mu2 = emp_mean
-        var1 = gt_variance
+        var1 = gt_variance*torch.ones_like(emp_var)
         var2 = emp_var
         mu_mix = (mu1 + mu2) / 2.0
         var_mix = (var1 + var2) / 2.0
@@ -923,11 +954,10 @@ class FastRCNNOutputs(object):
         our_dist = torch.distributions.normal.Normal(mu2, var2**(0.5)) ## P
         mix_dist = torch.distributions.normal.Normal(mu_mix, var_mix**(0.5)) ## M
 
-
         print("Emp mean and emp variance are {} {}".format(mu2, var2))
 
-        jsdivergence = (torch.distributions.kl.kl_divergence(our_dist, mix_dist) +  torch.distributions.kl.kl_divergence(actual_dist, mix_dist) )/ 2*dof
-
+        jsdivergence = (torch.distributions.kl.kl_divergence(our_dist, mix_dist) +  torch.distributions.kl.kl_divergence(actual_dist, mix_dist) )/ 2
+        print("js_div_standard_normal_closed_form loss is: {}".format(jsdivergence.item()))
         return jsdivergence
 
     def js_div_chi_sq_empirical(self):
@@ -971,8 +1001,8 @@ class FastRCNNOutputs(object):
         variance = self.pred_proposal_uncertain[fg_inds[:, None], gt_class_cols].flatten()
 
         rng = default_rng()
-        dof = 100
-        no_samples = 1000
+        dof = 75
+        no_samples = 100
 
         # assert len(preds) > dof*no_samples, 'DoF*no_samples and len(preds) are {} {}'.format(dof*no_samples, len(preds))
 
@@ -990,24 +1020,37 @@ class FastRCNNOutputs(object):
         gt_mean = dof
         gt_variance = 2*dof
 
-        mu1 = gt_mean
+        mu1 = gt_mean*torch.ones_like(emp_mean)
         mu2 = emp_mean
-        var1 = gt_variance
+        var1 = gt_variance*torch.ones_like(emp_var)
         var2 = emp_var
 
         actual_dist = torch.distributions.normal.Normal(mu1, var1**(0.5))
         our_dist = torch.distributions.normal.Normal(mu2, var2**(0.5))
 
-        our_log_probs = our_dist.log_prob(chi_sq_samples)
+        actual_log_probs = our_dist.log_prob(chi_sq_samples)
         true_log_probs = actual_dist.log_prob(chi_sq_samples)
-        mix_log_probs = torch.log((our_log_probs.exp() + true_log_probs.exp()) / 2.0)
+        
+        ## getting actual density
+        actual_probs = actual_log_probs.exp()
+        true_probs = true_log_probs.exp()
 
+        ## normalizing density
+        actual_normalized_probs = actual_probs / torch.sum(actual_probs)
+        true_normalized_probs = true_probs / torch.sum(true_probs)
+
+        ## getting mixture distribution for chi-squared
+        mix_normalized_probs = (actual_normalized_probs + true_normalized_probs) / 2.0
+
+        actual_normalized_log_probs = torch.log(actual_normalized_probs)
+        true_normalized_log_probs = torch.log(true_normalized_probs)
+        mix_normalized_log_probs = torch.log(mix_normalized_probs)
 
         print("Emp mean and emp variance are {} {}".format(mu2, var2))
 
         ## refer this to understand arguments of empirical KL divergence!
         ## https://pytorch.org/docs/stable/_modules/torch/nn/modules/loss.html#KLDivLoss
-        jsdivergence = (torch.nn.KLDivLoss(our_log_probs, mix_log_probs, log_target = True, reduction = 'mean') +  torch.nn.KLDivLoss(true_log_probs, mix_log_probs, log_target = True, reduction = 'mean')) / 2.0
+        jsdivergence = (torch.nn.KLDivLoss(actual_normalized_log_probs, mix_normalized_log_probs, log_target = True, reduction = 'mean') +  torch.nn.KLDivLoss(actual_normalized_log_probs, mix_normalized_log_probs, log_target = True, reduction = 'mean')) / 2.0
 
         return jsdivergence
 
@@ -1059,24 +1102,41 @@ class FastRCNNOutputs(object):
         gt_mean = 0
         gt_variance = 1
 
-        mu1 = gt_mean
+        if torch.isnan(emp_mean):
+            import ipdb; ipdb.set_trace()
+
+        mu1 = gt_mean*torch.ones_like(emp_mean)
         mu2 = emp_mean
-        var1 = gt_variance
+        var1 = gt_variance*torch.ones_like(emp_var)
         var2 = emp_var
 
         actual_dist = torch.distributions.normal.Normal(mu1, var1**(0.5))
         our_dist = torch.distributions.normal.Normal(mu2, var2**(0.5))
 
-        our_log_probs = our_dist.log_prob(std_normal_samples)
+        actual_log_probs = our_dist.log_prob(std_normal_samples)
         true_log_probs = actual_dist.log_prob(std_normal_samples)
-        mix_log_probs = torch.log((our_log_probs.exp() + true_log_probs.exp()) / 2.0)
+        
+        ## getting actual density
+        actual_probs = actual_log_probs.exp()
+        true_probs = true_log_probs.exp()
 
+        ## normalizing density
+        actual_normalized_probs = actual_probs / torch.sum(actual_probs)
+        true_normalized_probs = true_probs / torch.sum(true_probs)
+
+        ## getting mixture distribution for chi-squared
+        mix_normalized_probs = (actual_normalized_probs + true_normalized_probs) / 2.0
+
+        actual_normalized_log_probs = torch.log(actual_normalized_probs)
+        true_normalized_log_probs = torch.log(true_normalized_probs)
+        mix_normalized_log_probs = torch.log(mix_normalized_probs)
 
         print("Emp mean and emp variance are {} {}".format(mu2, var2))
 
         ## refer this to understand arguments of empirical KL divergence!
-        ## https://pytorch.org/docs/stable/_modules/torch/nn/modules/loss.html#KLDivLoss
-        jsdivergence = (torch.nn.KLDivLoss(our_log_probs, mix_log_probs, log_target = True, reduction = 'mean') +  torch.nn.KLDivLoss(true_log_probs, mix_log_probs, log_target = True, reduction = 'mean')) / 2.0
+        ## https://pytorch.org/docs/stable/_modules/torch/nn/modules/loss.html#KLDivLoss, reduction = 'mean'
+        jsdivergence = (F.kl_div(actual_normalized_log_probs, mix_normalized_log_probs.exp(), reduction = 'sum') +  F.kl_div(actual_normalized_log_probs, mix_normalized_log_probs.exp(), reduction = 'sum')) / 2.0
+        print("js_div_standard_normal_empirical is {}".format(jsdivergence.item()))
 
         return jsdivergence
 
@@ -1172,28 +1232,28 @@ class FastRCNNOutputs(object):
             loss_reg = self.mahalanobis_loss_attenuation()
         elif self.loss_type == 'kl_div_chi_sq_closed_form_plus_smoothl1':
             loss_name = self.loss_type
-            loss_reg = self.kl_div_chi_sq_closed_form() + self.smooth_l1()
+            loss_reg = self.kl_div_chi_sq_closed_form() + self.smooth_l1_loss()
         elif self.loss_type == 'kl_div_standard_normal_closed_form_plus_smoothl1':
             loss_name = self.loss_type
-            loss_reg = self.kl_div_standard_normal_closed_form() + self.smooth_l1()
+            loss_reg = self.kl_div_standard_normal_closed_form() + self.smooth_l1_loss()
         elif self.loss_type == 'kl_div_chi_sq_empirical_plus_smoothl1':
             loss_name = self.loss_type
-            loss_reg = self.kl_div_chi_sq_empirical() + self.smooth_l1()
+            loss_reg = self.kl_div_chi_sq_empirical() + self.smooth_l1_loss()
         elif self.loss_type == 'kl_div_standard_normal_empirical_plus_smoothl1':
             loss_name = self.loss_type
-            loss_reg = self.kl_div_standard_normal_empirical() + self.smooth_l1()
+            loss_reg = self.kl_div_standard_normal_empirical() + self.smooth_l1_loss()
         elif self.loss_type == 'js_div_chi_sq_closed_form_plus_smoothl1':
             loss_name = self.loss_type
-            loss_reg = self.js_div_chi_sq_closed_form() + self.smooth_l1()
+            loss_reg = self.js_div_chi_sq_closed_form() + self.smooth_l1_loss()
         elif self.loss_type == 'js_div_standard_normal_closed_form_plus_smoothl1':
             loss_name = self.loss_type
-            loss_reg = self.js_div_standard_normal_closed_form() + self.smooth_l1()
+            loss_reg = self.js_div_standard_normal_closed_form() + self.smooth_l1_loss()
         elif self.loss_type == 'js_div_chi_sq_empirical_plus_smoothl1':
             loss_name = self.loss_type
-            loss_reg = self.js_div_chi_sq_empirical() + self.smooth_l1()
+            loss_reg = self.js_div_chi_sq_empirical() + self.smooth_l1_loss()
         elif self.loss_type == 'js_div_standard_normal_empirical_plus_smoothl1':
             loss_name = self.loss_type
-            loss_reg = self.js_div_standard_normal_empirical() + self.smooth_l1()
+            loss_reg = self.js_div_standard_normal_empirical() + self.smooth_l1_loss()
         
 
             # loss_reg = self.loss_attenuation()
