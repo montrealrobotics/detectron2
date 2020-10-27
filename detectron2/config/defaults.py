@@ -580,10 +580,13 @@ _C.CUSTOM_OPTIONS.DETECTOR_TYPE = 'probabilistic'
 _C.CUSTOM_OPTIONS.ENCODING_TYPE = 'xyxy'
 
 """
-loss type regression when DETECTOR_TYPE is probabilistic: ['smooth_l1',
+loss type regression when DETECTOR_TYPE is probabilistic: ['collect_residuals',
+														'smooth_l1',
 														'loss_att',
 														'loss_cal', 
 														'mahalanobis_attenuation', 
+														'wasserstein_over_chi_squared',
+														'wasserstein_over_chi_squared_plus_smoothl1',
 														'kl_div_chi_sq_closed_form_plus_smoothl1',
 												        'kl_div_standard_normal_closed_form_plus_smoothl1',
 												        'kl_div_chi_sq_empirical_plus_smoothl1',
@@ -591,7 +594,15 @@ loss type regression when DETECTOR_TYPE is probabilistic: ['smooth_l1',
 												        'js_div_chi_sq_closed_form_plus_smoothl1',
 												        'js_div_standard_normal_closed_form_plus_smoothl1',
 												        'js_div_chi_sq_empirical_plus_smoothl1',
-												        'js_div_standard_normal_empirical_plus_smoothl1',]
+												        'js_div_standard_normal_empirical_plus_smoothl1',
+												        'kl_div_chi_sq_closed_form',
+												        'kl_div_standard_normal_closed_form',
+												        'kl_div_chi_sq_empirical',
+												        'kl_div_standard_normal_empirical',
+												        'js_div_chi_sq_closed_form',
+												        'js_div_standard_normal_closed_form',
+												        'js_div_chi_sq_empirical',
+												        'js_div_standard_normal_empirical',]
 
 """
 
@@ -635,3 +646,4 @@ _C.STRUCTURED_EDGE_RESPONSE.PIXEL_STD = CN({'BGR': [1.0, 1.0, 1.0],
 											'GREYEDGE': [1.0],
 											'RGBCONCATEDGE': [1.0, 1.0, 1.0, 1.0],
 											'GREYCONCATEDGE': [1.0, 1.0]})
+

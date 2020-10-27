@@ -506,6 +506,130 @@ class FastRCNNOutputs(object):
 
         return loss_attenuation_final
 
+    def collect_residuals(self):
+        gt_proposal_deltas = self.box2box_transform.get_deltas(
+            self.proposals.tensor, self.gt_boxes.tensor
+        )
+        box_dim = gt_proposal_deltas.size(1)  # 4 or 5
+        cls_agnostic_bbox_reg = self.pred_proposal_deltas.size(1) == box_dim
+        device = self.pred_proposal_deltas.device
+
+        bg_class_ind = self.pred_class_logits.shape[1] - 1
+
+        # Box delta loss is only computed between the prediction for the gt class k
+        # (if 0 <= k < bg_class_ind) and the target; there is no loss defined on predictions
+        # for non-gt classes and background.
+        # Empty fg_inds produces a valid loss of zero as long as the size_average
+        # arg to smooth_l1_loss is False (otherwise it uses torch.mean internally
+        # and would produce a nan loss).
+        fg_inds = torch.nonzero((self.gt_classes >= 0) & (self.gt_classes < bg_class_ind)).squeeze(
+            1
+        )
+        if cls_agnostic_bbox_reg:
+            # pred_proposal_deltas only corresponds to foreground class for agnostic
+            gt_class_cols = torch.arange(box_dim, device=device)
+        else:
+            fg_gt_classes = self.gt_classes[fg_inds]
+            # pred_proposal_deltas for class k are located in columns [b * k : b * k + b],
+            # where b is the dimension of box representation (4 or 5)
+            # Note that compared to Detectron1,
+            # we do not perform bounding box regression for background classes.
+            gt_class_cols = box_dim * fg_gt_classes[:, None] + torch.arange(box_dim, device=device)
+
+        preds = self.pred_proposal_deltas[fg_inds[:, None], gt_class_cols].flatten()
+        gts = gt_proposal_deltas[fg_inds].flatten()
+        variance = self.pred_proposal_uncertain[fg_inds[:, None], gt_class_cols].flatten()
+
+        ## very dangerous piece of code, do not uncomment it without expert supervision
+
+        std_normal_samples = (gts - preds) / variance.sqrt()
+        our_stuff = std_normal_samples.detach().clone().cpu().numpy()
+        print("shape of residual vector is {}".format(our_stuff.shape))
+
+        global dist_save
+        if dist_save is 0:
+            dist_save = our_stuff
+        else: 
+            dist_save = np.concatenate((dist_save, our_stuff),axis=0)
+
+        if self.curr_iteration == 50:
+            print("The shape of dist_save is: {}".format(dist_save.shape))
+            np.save(f'/network/tmp1/bhattdha/detectron2_cityscapes/wasserstein_over_chi_squared_frozen_stage_1/unigaussians_wasserstein_over_chi_squared_frozen_stage_1.npy', np.array(dist_save))
+            import sys; sys.exit(0)
+
+        return 0
+
+    def wasserstein_over_chi_squared(self):
+        """
+        Apply wasserstein distance over the chi-squared distributions
+
+        Returns:
+            scalar Tensor
+        """
+        gt_proposal_deltas = self.box2box_transform.get_deltas(
+            self.proposals.tensor, self.gt_boxes.tensor
+        )
+        box_dim = gt_proposal_deltas.size(1)  # 4 or 5
+        cls_agnostic_bbox_reg = self.pred_proposal_deltas.size(1) == box_dim
+        device = self.pred_proposal_deltas.device
+
+        bg_class_ind = self.pred_class_logits.shape[1] - 1
+
+        # Box delta loss is only computed between the prediction for the gt class k
+        # (if 0 <= k < bg_class_ind) and the target; there is no loss defined on predictions
+        # for non-gt classes and background.
+        # Empty fg_inds produces a valid loss of zero as long as the size_average
+        # arg to smooth_l1_loss is False (otherwise it uses torch.mean internally
+        # and would produce a nan loss).
+        fg_inds = torch.nonzero((self.gt_classes >= 0) & (self.gt_classes < bg_class_ind)).squeeze(
+            1
+        )
+        if cls_agnostic_bbox_reg:
+            # pred_proposal_deltas only corresponds to foreground class for agnostic
+            gt_class_cols = torch.arange(box_dim, device=device)
+        else:
+            fg_gt_classes = self.gt_classes[fg_inds]
+            # pred_proposal_deltas for class k are located in columns [b * k : b * k + b],
+            # where b is the dimension of box representation (4 or 5)
+            # Note that compared to Detectron1,
+            # we do not perform bounding box regression for background classes.
+            gt_class_cols = box_dim * fg_gt_classes[:, None] + torch.arange(box_dim, device=device)
+
+        preds = self.pred_proposal_deltas[fg_inds[:, None], gt_class_cols].flatten()
+        gts = gt_proposal_deltas[fg_inds].flatten()
+        variance = self.pred_proposal_uncertain[fg_inds[:, None], gt_class_cols].flatten()
+
+        rng = default_rng()
+        dof = 75
+        no_samples = 100
+
+        # assert len(preds) > dof*no_samples, 'DoF*no_samples and len(preds) are {} {}'.format(dof*no_samples, len(preds))
+
+        chi_sq_samples = []
+
+        for i in range(no_samples):            
+            indices = rng.choice(len(preds), size = dof, replace = False)
+            chi_sq_variable = (preds[indices] - gts[indices])**2 / variance[indices]
+            chi_sq_samples.append(chi_sq_variable.sum())
+
+        chi_sq_samples = torch.stack(chi_sq_samples)
+
+        emp_mean = chi_sq_samples.mean()
+        emp_var = chi_sq_samples.var()
+        gt_mean = dof
+        gt_variance = 2*dof
+
+        mu1 = gt_mean*torch.ones_like(emp_mean)
+        mu2 = emp_mean
+        var1 = gt_variance*torch.ones_like(emp_var)
+        var2 = emp_var        
+
+        print("Emp mean and emp variance are {} {}".format(mu2, var2))
+        wasserstein_distance = ((mu1 - mu2)**2 + var1 + var2 - 2*(var1*var2)**0.5)*1e-3
+        print("wasserstein loss is {}".format(wasserstein_distance))
+
+        return wasserstein_distance         
+
     def kl_div_chi_sq_closed_form(self):
         """
         Apply KL divergence loss over the chi-squared distribution
@@ -577,7 +701,7 @@ class FastRCNNOutputs(object):
         print("Emp mean and emp variance are {} {}".format(mu2, var2))
 
         kldivergence = torch.distributions.kl.kl_divergence(our_dist, actual_dist) / dof
-
+        print("kl_div_chi_sq_closed_form is: {}".format(kldivergence))
         return kldivergence
 
     def kl_div_standard_normal_closed_form(self):
@@ -639,7 +763,7 @@ class FastRCNNOutputs(object):
 
         # https://pytorch.org/docs/stable/_modules/torch/distributions/kl.html#kl_divergence
         kldivergence = torch.distributions.kl.kl_divergence(our_dist, actual_dist) 
-
+        print("kl_div_standard_normal_closed_form is {}".format(kldivergence))
         return kldivergence
 
     def kl_div_chi_sq_empirical(self):
@@ -723,8 +847,8 @@ class FastRCNNOutputs(object):
 
         ## refer this to understand arguments of empirical KL divergence!
         ## https://pytorch.org/docs/stable/_modules/torch/nn/modules/loss.html#KLDivLoss
-        kldivergence = torch.nn.KLDivLoss(actual_normalized_log_probs, true_normalized_log_probs, log_target = True, reduction = 'mean')
-
+        kldivergence = F.kl_div(actual_normalized_log_probs, true_normalized_log_probs.exp(), reduction = 'mean')
+        print("kl_div_chi_sq_empirical is: {}".format(kldivergence))
         return kldivergence
 
     def kl_div_standard_normal_empirical(self):
@@ -793,7 +917,8 @@ class FastRCNNOutputs(object):
 
         print("Emp mean and emp variance are {} {}".format(mu2, var2))
 
-        kldivergence = torch.nn.KLDivLoss(actual_normalized_log_probs, true_normalized_log_probs, log_target = True, reduction = 'mean')
+        kldivergence = F.kl_div(actual_normalized_log_probs, true_normalized_log_probs.exp(), reduction = 'sum')
+        print("kl_div_standard_normal_empirical is: {}".format(kldivergence))
 
         return kldivergence
 
@@ -863,7 +988,7 @@ class FastRCNNOutputs(object):
         var2 = emp_var
 
         mu_mix = (mu1 + mu2) / 2.0
-        var_mix = (var1 + var2) / 2.0
+        var_mix = (var1 + var2) / 4.0
 
         actual_dist = torch.distributions.normal.Normal(mu1, var1**(0.5)) ## Q
         our_dist = torch.distributions.normal.Normal(mu2, var2**(0.5)) ## P
@@ -930,7 +1055,7 @@ class FastRCNNOutputs(object):
 
         # if self.curr_iteration == 100:
         #     print("The shape of dist_save is: {}".format(dist_save.shape))
-        #     np.save(f'/network/tmp1/bhattdha/detectron2_cityscapes/js_div_standard_normal_closed_form_plus_smoothl1/unigaussians_js_div_standard_normal_closed_form_plus_smoothl1.npy', np.array(dist_save))
+        #     np.save(f'/network/tmp1/bhattdha/detectron2_cityscapes/js_div_standard_normal_closed_form_plus_smoothl1_uncert_reg_unfrozen/unigaussians_js_div_standard_normal_closed_form_plus_smoothl1_uncert_reg_unfrozen.npy', np.array(dist_save))
         #     import sys; sys.exit(0)
 
 
@@ -948,7 +1073,7 @@ class FastRCNNOutputs(object):
         var1 = gt_variance*torch.ones_like(emp_var)
         var2 = emp_var
         mu_mix = (mu1 + mu2) / 2.0
-        var_mix = (var1 + var2) / 2.0
+        var_mix = (var1 + var2) / 4.0
 
         actual_dist = torch.distributions.normal.Normal(mu1, var1**(0.5)) ## Q
         our_dist = torch.distributions.normal.Normal(mu2, var2**(0.5)) ## P
@@ -959,6 +1084,7 @@ class FastRCNNOutputs(object):
         jsdivergence = (torch.distributions.kl.kl_divergence(our_dist, mix_dist) +  torch.distributions.kl.kl_divergence(actual_dist, mix_dist) )/ 2
         print("js_div_standard_normal_closed_form loss is: {}".format(jsdivergence.item()))
         return jsdivergence
+
 
     def js_div_chi_sq_empirical(self):
         """
@@ -999,6 +1125,26 @@ class FastRCNNOutputs(object):
         preds = self.pred_proposal_deltas[fg_inds[:, None], gt_class_cols].flatten()
         gts = gt_proposal_deltas[fg_inds].flatten()
         variance = self.pred_proposal_uncertain[fg_inds[:, None], gt_class_cols].flatten()
+
+        ##############################################################################################################################################################################
+
+        ## very dangerous piece of code, do not uncomment it without expert supervision
+
+        # std_normal_samples = (gts - preds) / variance.sqrt()
+        # our_stuff = std_normal_samples.detach().clone().cpu().numpy()
+        # global dist_save
+        # if dist_save is 0:
+        #     dist_save = our_stuff
+        # else: 
+        #     dist_save = np.concatenate((dist_save, our_stuff),axis=0)
+
+        # if self.curr_iteration == 100:
+        #     print("The shape of dist_save is: {}".format(dist_save.shape))
+        #     np.save(f'/network/tmp1/bhattdha/detectron2_cityscapes/js_div_chi_sq_empirical_plus_smoothl1_uncert_reg_unfrozen/unigaussians_js_div_chi_sq_empirical_plus_smoothl1_uncert_reg_unfrozen.npy', np.array(dist_save))
+        #     import sys; sys.exit(0)
+
+
+        ##############################################################################################################################################################################
 
         rng = default_rng()
         dof = 75
@@ -1050,7 +1196,8 @@ class FastRCNNOutputs(object):
 
         ## refer this to understand arguments of empirical KL divergence!
         ## https://pytorch.org/docs/stable/_modules/torch/nn/modules/loss.html#KLDivLoss
-        jsdivergence = (torch.nn.KLDivLoss(actual_normalized_log_probs, mix_normalized_log_probs, log_target = True, reduction = 'mean') +  torch.nn.KLDivLoss(actual_normalized_log_probs, mix_normalized_log_probs, log_target = True, reduction = 'mean')) / 2.0
+        jsdivergence = (F.kl_div(actual_normalized_log_probs, mix_normalized_log_probs.exp(), reduction = 'sum') +  F.kl_div(actual_normalized_log_probs, mix_normalized_log_probs.exp(), reduction = 'sum')) / 2.0
+        print("js_div_chi_sq_empirical is {}".format(jsdivergence.item()))
 
         return jsdivergence
 
@@ -1208,19 +1355,36 @@ class FastRCNNOutputs(object):
         """
 
         """
-        kl_div_chi_sq_closed_form_plus_smoothl1
-        kl_div_standard_normal_closed_form_plus_smoothl1
-        kl_div_chi_sq_empirical_plus_smoothl1
-        kl_div_standard_normal_empirical_plus_smoothl1
-        js_div_chi_sq_closed_form_plus_smoothl1
-        js_div_standard_normal_closed_form_plus_smoothl1
-        js_div_chi_sq_empirical_plus_smoothl1
-        js_div_standard_normal_empirical_plus_smoothl1
+        'collect_residuals'
+        'smooth_l1',
+        'loss_att',
+        'loss_cal', 
+        'mahalanobis_attenuation', 
+        'wasserstein_over_chi_squared',
+        'kl_div_chi_sq_closed_form_plus_smoothl1',
+        'kl_div_standard_normal_closed_form_plus_smoothl1',
+        'kl_div_chi_sq_empirical_plus_smoothl1',
+        'kl_div_standard_normal_empirical_plus_smoothl1',
+        'js_div_chi_sq_closed_form_plus_smoothl1',
+        'js_div_standard_normal_closed_form_plus_smoothl1',
+        'js_div_chi_sq_empirical_plus_smoothl1',
+        'js_div_standard_normal_empirical_plus_smoothl1',
+        'kl_div_chi_sq_closed_form',
+        'kl_div_standard_normal_closed_form',
+        'kl_div_chi_sq_empirical',
+        'kl_div_standard_normal_empirical',
+        'js_div_chi_sq_closed_form',
+        'js_div_standard_normal_closed_form',
+        'js_div_chi_sq_empirical',
+        'js_div_standard_normal_empirical'
         """
 
         if self.loss_type == 'smooth_l1':
             loss_name = 'smooth_l1_loss'
             loss_reg = self.smooth_l1_loss()
+        elif self.loss_type == 'collect_residuals':
+            loss_name = self.loss_type
+            loss_reg = self.collect_residuals()
         elif self.loss_type == 'loss_att':
             loss_name = 'loss_attenuation'
             loss_reg = self.loss_attenuation()
@@ -1254,7 +1418,39 @@ class FastRCNNOutputs(object):
         elif self.loss_type == 'js_div_standard_normal_empirical_plus_smoothl1':
             loss_name = self.loss_type
             loss_reg = self.js_div_standard_normal_empirical() + self.smooth_l1_loss()
+
+        elif self.loss_type == 'kl_div_chi_sq_closed_form':
+            loss_name = self.loss_type
+            loss_reg = self.kl_div_chi_sq_closed_form()
+        elif self.loss_type == 'kl_div_standard_normal_closed':
+            loss_name = self.loss_type
+            loss_reg = self.kl_div_standard_normal_closed_form() 
+        elif self.loss_type == 'kl_div_chi_sq_empirical':
+            loss_name = self.loss_type
+            loss_reg = self.kl_div_chi_sq_empirical() 
+        elif self.loss_type == 'kl_div_standard_normal_empirical':
+            loss_name = self.loss_type
+            loss_reg = self.kl_div_standard_normal_empirical() 
+        elif self.loss_type == 'js_div_chi_sq_closed_form':
+            loss_name = self.loss_type
+            loss_reg = self.js_div_chi_sq_closed_form()
+        elif self.loss_type == 'js_div_standard_normal_closed_form':
+            loss_name = self.loss_type
+            loss_reg = self.js_div_standard_normal_closed_form() 
+        elif self.loss_type == 'js_div_chi_sq_empirical':
+            loss_name = self.loss_type
+            loss_reg = self.js_div_chi_sq_empirical() 
+        elif self.loss_type == 'js_div_standard_normal_empirical':
+            loss_name = self.loss_type
+            loss_reg = self.js_div_standard_normal_empirical() 
         
+        elif self.loss_type == 'wasserstein_over_chi_squared':
+            loss_name = self.loss_type
+            loss_reg = self.wasserstein_over_chi_squared()
+        elif self.loss_type == 'wasserstein_over_chi_squared_plus_smoothl1':
+            loss_name = self.loss_type
+            loss_reg = self.wasserstein_over_chi_squared()  + self.smooth_l1_loss()
+
 
             # loss_reg = self.loss_attenuation()
 
