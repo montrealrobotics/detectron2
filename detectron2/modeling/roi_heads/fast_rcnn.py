@@ -443,6 +443,53 @@ class FastRCNNOutputs(object):
         mahalanobis_attenuation_loss = (loss_attenuation_final + annealing_weight * mahalanobis_penalty) / self.gt_classes.numel()
         return mahalanobis_attenuation_loss
 
+    def variance_loss(self):
+        """
+        variance loss
+
+        try to match sigma^2 with (x - mu)^2
+
+        Returns:
+            scalar Tensor
+        """
+        gt_proposal_deltas = self.box2box_transform.get_deltas(
+            self.proposals.tensor, self.gt_boxes.tensor
+        )
+        box_dim = gt_proposal_deltas.size(1)  # 4 or 5
+        cls_agnostic_bbox_reg = self.pred_proposal_deltas.size(1) == box_dim
+        device = self.pred_proposal_deltas.device
+
+        bg_class_ind = self.pred_class_logits.shape[1] - 1
+
+        # Box delta loss is only computed between the prediction for the gt class k
+        # (if 0 <= k < bg_class_ind) and the target; there is no loss defined on predictions
+        # for non-gt classes and background.
+        # Empty fg_inds produces a valid loss of zero as long as the size_average
+        # arg to smooth_l1_loss is False (otherwise it uses torch.mean internally
+        # and would produce a nan loss).
+        fg_inds = torch.nonzero((self.gt_classes >= 0) & (self.gt_classes < bg_class_ind)).squeeze(
+            1
+        )
+        if cls_agnostic_bbox_reg:
+            # pred_proposal_deltas only corresponds to foreground class for agnostic
+            gt_class_cols = torch.arange(box_dim, device=device)
+        else:
+            fg_gt_classes = self.gt_classes[fg_inds]
+            # pred_proposal_deltas for class k are located in columns [b * k : b * k + b],
+            # where b is the dimension of box representation (4 or 5)
+            # Note that compared to Detectron1,
+            # we do not perform bounding box regression for background classes.
+            gt_class_cols = box_dim * fg_gt_classes[:, None] + torch.arange(box_dim, device=device)
+
+        preds = self.pred_proposal_deltas[fg_inds[:, None], gt_class_cols].flatten()
+        gts = gt_proposal_deltas[fg_inds].flatten()
+        variance = self.pred_proposal_uncertain[fg_inds[:, None], gt_class_cols].flatten()
+
+
+        variance_loss = ((variance - (gts - preds)**2)**2).mean() / self.gt_classes.numel()
+        print("Variance loss is : {}".format(variance_loss))
+        return variance_loss
+
     def loss_attenuation(self):
         """
         Loss attenuation implementation
@@ -554,7 +601,7 @@ class FastRCNNOutputs(object):
 
         if self.curr_iteration == 50:
             print("The shape of dist_save is: {}".format(dist_save.shape))
-            np.save(f'/network/tmp1/bhattdha/detectron2_cityscapes/wasserstein_over_chi_squared_frozen_stage_1/unigaussians_wasserstein_over_chi_squared_frozen_stage_1.npy', np.array(dist_save))
+            np.save(f'/network/tmp1/bhattdha/detectron2_cityscapes/cityscapes_loss_att_unfrozen_reg_uncert_head/unigaussians_cityscapes_loss_att_unfrozen_reg_uncert_head.npy', np.array(dist_save))
             import sys; sys.exit(0)
 
         return 0
@@ -626,6 +673,64 @@ class FastRCNNOutputs(object):
 
         print("Emp mean and emp variance are {} {}".format(mu2, var2))
         wasserstein_distance = ((mu1 - mu2)**2 + var1 + var2 - 2*(var1*var2)**0.5)*1e-3
+        print("wasserstein loss is {}".format(wasserstein_distance))
+
+        return wasserstein_distance         
+
+    def wasserstein_over_standard_normal(self):
+        """
+        Apply wasserstein distance over the standard normal distribution
+
+        Returns:
+            scalar Tensor
+        """
+        gt_proposal_deltas = self.box2box_transform.get_deltas(
+            self.proposals.tensor, self.gt_boxes.tensor
+        )
+        box_dim = gt_proposal_deltas.size(1)  # 4 or 5
+        cls_agnostic_bbox_reg = self.pred_proposal_deltas.size(1) == box_dim
+        device = self.pred_proposal_deltas.device
+
+        bg_class_ind = self.pred_class_logits.shape[1] - 1
+
+        # Box delta loss is only computed between the prediction for the gt class k
+        # (if 0 <= k < bg_class_ind) and the target; there is no loss defined on predictions
+        # for non-gt classes and background.
+        # Empty fg_inds produces a valid loss of zero as long as the size_average
+        # arg to smooth_l1_loss is False (otherwise it uses torch.mean internally
+        # and would produce a nan loss).
+        fg_inds = torch.nonzero((self.gt_classes >= 0) & (self.gt_classes < bg_class_ind)).squeeze(
+            1
+        )
+        if cls_agnostic_bbox_reg:
+            # pred_proposal_deltas only corresponds to foreground class for agnostic
+            gt_class_cols = torch.arange(box_dim, device=device)
+        else:
+            fg_gt_classes = self.gt_classes[fg_inds]
+            # pred_proposal_deltas for class k are located in columns [b * k : b * k + b],
+            # where b is the dimension of box representation (4 or 5)
+            # Note that compared to Detectron1,
+            # we do not perform bounding box regression for background classes.
+            gt_class_cols = box_dim * fg_gt_classes[:, None] + torch.arange(box_dim, device=device)
+
+        preds = self.pred_proposal_deltas[fg_inds[:, None], gt_class_cols].flatten()
+        gts = gt_proposal_deltas[fg_inds].flatten()
+        variance = self.pred_proposal_uncertain[fg_inds[:, None], gt_class_cols].flatten()
+
+        std_normal_samples = (gts - preds) / variance.sqrt()
+
+        emp_mean = std_normal_samples.mean()
+        emp_var = std_normal_samples.var()
+        gt_mean = 0
+        gt_variance = 1
+
+        mu1 = gt_mean*torch.ones_like(emp_mean)
+        mu2 = emp_mean
+        var1 = gt_variance*torch.ones_like(emp_var)
+        var2 = emp_var
+
+        print("Emp mean and emp variance are {} {}".format(mu2, var2))
+        wasserstein_distance = ((mu1 - mu2)**2 + var1 + var2 - 2*(var1*var2)**0.5) * 10
         print("wasserstein loss is {}".format(wasserstein_distance))
 
         return wasserstein_distance         
@@ -1356,6 +1461,7 @@ class FastRCNNOutputs(object):
 
         """
         'collect_residuals'
+        'variance_loss',
         'smooth_l1',
         'loss_att',
         'loss_cal', 
@@ -1377,6 +1483,8 @@ class FastRCNNOutputs(object):
         'js_div_standard_normal_closed_form',
         'js_div_chi_sq_empirical',
         'js_div_standard_normal_empirical'
+        'wasserstein_over_standard_normal'
+        'wasserstein_over_standard_normal_plus_smoothl1'
         """
 
         if self.loss_type == 'smooth_l1':
@@ -1450,9 +1558,16 @@ class FastRCNNOutputs(object):
         elif self.loss_type == 'wasserstein_over_chi_squared_plus_smoothl1':
             loss_name = self.loss_type
             loss_reg = self.wasserstein_over_chi_squared()  + self.smooth_l1_loss()
-
-
+        elif self.loss_type == 'wasserstein_over_standard_normal':
+            loss_name = self.loss_type
+            loss_reg = self.wasserstein_over_standard_normal() 
+        elif self.loss_type == 'wasserstein_over_standard_normal_plus_smoothl1':
+            loss_name = self.loss_type
+            loss_reg = self.wasserstein_over_standard_normal() + self.smooth_l1_loss()
             # loss_reg = self.loss_attenuation()
+        elif self.loss_type == 'variance_loss':
+            loss_name = self.loss_type
+            loss_reg = self.variance_loss()
 
         return {
             loss_name: loss_reg,
