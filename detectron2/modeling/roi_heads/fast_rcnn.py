@@ -252,7 +252,7 @@ class FastRCNNOutputs(object):
 
 
     def __init__(
-        self, box2box_transform, pred_class_logits, pred_proposal_deltas, pred_proposal_uncertain, proposals, smooth_l1_beta, loss_type, total_iterations
+        self, box2box_transform, pred_class_logits, pred_proposal_deltas, pred_proposal_uncertain, proposals, smooth_l1_beta, loss_type, total_iterations, cfg = None
     ):
         """
         Args:
@@ -297,6 +297,8 @@ class FastRCNNOutputs(object):
         self.curr_iteration = curr_iteration
         self.curr_weight_index = 0
         self.increment_val = int(self.total_iterations / (len(list(self.annealing_weights))))
+        self.cfg = cfg
+        assert self.cfg is not None
         # The following fields should exist only when training.
         if proposals[0].has("gt_boxes"):
             self.gt_boxes = box_type.cat([p.gt_boxes for p in proposals])
@@ -484,9 +486,10 @@ class FastRCNNOutputs(object):
         preds = self.pred_proposal_deltas[fg_inds[:, None], gt_class_cols].flatten()
         gts = gt_proposal_deltas[fg_inds].flatten()
         variance = self.pred_proposal_uncertain[fg_inds[:, None], gt_class_cols].flatten()
+        
+        variance_loss = smooth_l1_loss(variance, (gts - preds)**2, self.smooth_l1_beta, reduction="sum")
 
-
-        variance_loss = ((variance - (gts - preds)**2)**2).mean() / self.gt_classes.numel()
+        variance_loss = variance_loss / self.gt_classes.numel()
         print("Variance loss is : {}".format(variance_loss))
         return variance_loss
 
@@ -646,6 +649,8 @@ class FastRCNNOutputs(object):
         gts = gt_proposal_deltas[fg_inds].flatten()
         variance = self.pred_proposal_uncertain[fg_inds[:, None], gt_class_cols].flatten()
 
+        print("Total number of samples are: {}".format(preds.shape))
+
         rng = default_rng()
         dof = 75
         no_samples = 100
@@ -672,7 +677,7 @@ class FastRCNNOutputs(object):
         var2 = emp_var        
 
         print("Emp mean and emp variance are {} {}".format(mu2, var2))
-        wasserstein_distance = ((mu1 - mu2)**2 + var1 + var2 - 2*(var1*var2)**0.5)*1e-3
+        wasserstein_distance = ((mu1 - mu2)**2 + var1 + var2 - 2*(var1*var2)**0.5) * 1e-3
         print("wasserstein loss is {}".format(wasserstein_distance))
 
         return wasserstein_distance         
@@ -805,7 +810,7 @@ class FastRCNNOutputs(object):
 
         print("Emp mean and emp variance are {} {}".format(mu2, var2))
 
-        kldivergence = torch.distributions.kl.kl_divergence(our_dist, actual_dist) / dof
+        kldivergence = torch.distributions.kl.kl_divergence(our_dist, actual_dist) * 0.2
         print("kl_div_chi_sq_closed_form is: {}".format(kldivergence))
         return kldivergence
 
@@ -1487,6 +1492,8 @@ class FastRCNNOutputs(object):
         'wasserstein_over_standard_normal_plus_smoothl1'
         """
 
+        w1, w2 = self.cfg.CUSTOM_OPTIONS.LOSS_WEIGHTS
+
         if self.loss_type == 'smooth_l1':
             loss_name = 'smooth_l1_loss'
             loss_reg = self.smooth_l1_loss()
@@ -1504,28 +1511,28 @@ class FastRCNNOutputs(object):
             loss_reg = self.mahalanobis_loss_attenuation()
         elif self.loss_type == 'kl_div_chi_sq_closed_form_plus_smoothl1':
             loss_name = self.loss_type
-            loss_reg = self.kl_div_chi_sq_closed_form() + self.smooth_l1_loss()
+            loss_reg = w1*self.kl_div_chi_sq_closed_form() + w2*self.smooth_l1_loss()
         elif self.loss_type == 'kl_div_standard_normal_closed_form_plus_smoothl1':
             loss_name = self.loss_type
-            loss_reg = self.kl_div_standard_normal_closed_form() + self.smooth_l1_loss()
+            loss_reg = w1*self.kl_div_standard_normal_closed_form() + w2*self.smooth_l1_loss()
         elif self.loss_type == 'kl_div_chi_sq_empirical_plus_smoothl1':
             loss_name = self.loss_type
-            loss_reg = self.kl_div_chi_sq_empirical() + self.smooth_l1_loss()
+            loss_reg = w1*self.kl_div_chi_sq_empirical() + w2*self.smooth_l1_loss()
         elif self.loss_type == 'kl_div_standard_normal_empirical_plus_smoothl1':
             loss_name = self.loss_type
-            loss_reg = self.kl_div_standard_normal_empirical() + self.smooth_l1_loss()
+            loss_reg = w1*self.kl_div_standard_normal_empirical() + w2*self.smooth_l1_loss()
         elif self.loss_type == 'js_div_chi_sq_closed_form_plus_smoothl1':
             loss_name = self.loss_type
-            loss_reg = self.js_div_chi_sq_closed_form() + self.smooth_l1_loss()
+            loss_reg = w1*self.js_div_chi_sq_closed_form() + w2*self.smooth_l1_loss()
         elif self.loss_type == 'js_div_standard_normal_closed_form_plus_smoothl1':
             loss_name = self.loss_type
-            loss_reg = self.js_div_standard_normal_closed_form() + self.smooth_l1_loss()
+            loss_reg = w1*self.js_div_standard_normal_closed_form() + w2*self.smooth_l1_loss()
         elif self.loss_type == 'js_div_chi_sq_empirical_plus_smoothl1':
             loss_name = self.loss_type
-            loss_reg = self.js_div_chi_sq_empirical() + self.smooth_l1_loss()
+            loss_reg = w1*self.js_div_chi_sq_empirical() + w2*self.smooth_l1_loss()
         elif self.loss_type == 'js_div_standard_normal_empirical_plus_smoothl1':
             loss_name = self.loss_type
-            loss_reg = self.js_div_standard_normal_empirical() + self.smooth_l1_loss()
+            loss_reg = w1*self.js_div_standard_normal_empirical() + w2*self.smooth_l1_loss()
 
         elif self.loss_type == 'kl_div_chi_sq_closed_form':
             loss_name = self.loss_type
@@ -1557,13 +1564,13 @@ class FastRCNNOutputs(object):
             loss_reg = self.wasserstein_over_chi_squared()
         elif self.loss_type == 'wasserstein_over_chi_squared_plus_smoothl1':
             loss_name = self.loss_type
-            loss_reg = self.wasserstein_over_chi_squared()  + self.smooth_l1_loss()
+            loss_reg = w1*self.wasserstein_over_chi_squared()  + w2*self.smooth_l1_loss()
         elif self.loss_type == 'wasserstein_over_standard_normal':
             loss_name = self.loss_type
             loss_reg = self.wasserstein_over_standard_normal() 
         elif self.loss_type == 'wasserstein_over_standard_normal_plus_smoothl1':
             loss_name = self.loss_type
-            loss_reg = self.wasserstein_over_standard_normal() + self.smooth_l1_loss()
+            loss_reg = w1*self.wasserstein_over_standard_normal() + w2*self.smooth_l1_loss()
             # loss_reg = self.loss_attenuation()
         elif self.loss_type == 'variance_loss':
             loss_name = self.loss_type

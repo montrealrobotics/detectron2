@@ -230,7 +230,7 @@ class SimpleTrainer(TrainerBase):
         # losses.backward()
 
         # To avoid bad gradients, this is a temporary "hack" and probably very bad thing to do too, come back again to fix!!
-        if losses.item() < 50:
+        if losses.item() < 5000:
             # print("Doing nothing")
             losses.backward()
             self.optimizer.step()

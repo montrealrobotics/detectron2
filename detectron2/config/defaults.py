@@ -626,6 +626,9 @@ _C.CUSTOM_OPTIONS.ANNEALING_ITERATIONS = 15000
 ## whether we should corrupt background in stage-2 or not
 _C.CUSTOM_OPTIONS.CORRUPT_BG = False
 
+## weights for losses(for smoothl1 + calibration loss setup!)
+_C.CUSTOM_OPTIONS.LOSS_WEIGHTS = [1, 1] 
+
 ## Option around input and structured edge response
 _C.STRUCTURED_EDGE_RESPONSE = CN()
 ## do we want structured edge response?
