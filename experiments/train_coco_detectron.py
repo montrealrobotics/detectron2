@@ -70,18 +70,20 @@ cfg = get_cfg()
 # cfg.merge_from_file("/home/mila/b/bhattdha/detectron2/configs/COCO-InstanceSegmentation/mask_rcnn_R_101_FPN_3x.yaml")
 cfg.merge_from_file("/home/mila/b/bhattdha/detectron2/configs/COCO-Detection/faster_rcnn_R_101_FPN_3x.yaml")
 # cfg.merge_from_file("/network/home/bhattdha/detectron2/configs/COCO-Detection/faster_rcnn_X_101_32x8d_FPN_deform_conv_3x.yaml")
+
+
+cfg.SOLVER.IMS_PER_BATCH = 24
+cfg.SOLVER.BASE_LR = 1e-3
+# cfg.SOLVER.STEPS: (210000, 250000)
+cfg.SOLVER.MAX_ITER = 40000
+
 cfg.DATASETS.TEST = ()
 cfg.DATALOADER.NUM_WORKERS = 2
+cfg.CUSTOM_OPTIONS.LOSS_WEIGHTS = [0.5, 0.5] 
 # cfg.MODEL.WEIGHTS = "detectron2://COCO-Detection/faster_rcnn_R_50_FPN_3x/137849458/model_final_280758.pkl"  # initialize from model zoo
 # cfg.MODEL.WEIGHTS = "/home/mila/b/bhattdha/model_final_f6e8b1.pkl"
-# cfg.MODEL.WEIGHTS = "/network/tmp1/bhattdha/detectron2_coco/coco_xyxy_full_model/model_final.pth"
-cfg.MODEL.WEIGHTS = "/network/tmp1/bhattdha/detectron2_coco/coco_probabilistic_from_coco_xyxy_deterministic_full_frozen/model_0004999.pth"
-# cfg.MODEL.WEIGHTS = "/network/tmp1/bhattdha/detectron2_kitti/model_0014999.pth"  # initialize fron deterministic model
-# cfg.SOLVER.IMS_PER_BATCH = 18	
-# cfg.SOLVER.BASE_LR = 0.015
-# cfg.SOLVER.BASE_LR = 1e-2	
-# cfg.SOLVER.MAX_ITER =  240000
-cfg.SOLVER.CHECKPOINT_PERIOD = 5000  
+cfg.MODEL.WEIGHTS = "/network/tmp1/bhattdha/detectron2_coco/loss_att_unfrozen_uncert_head/model_0009999.pth"
+cfg.SOLVER.CHECKPOINT_PERIOD = 2500  
 # cfg.MODEL.ROI_HEADS.BATCH_SIZE_PER_IMAGE = 512
 cfg.CUSTOM_OPTIONS.RPN_FORGROUND_LOSS_ONLY = False
 cfg.CUSTOM_OPTIONS.CORRUPT_BG = False
@@ -89,7 +91,7 @@ cfg.STRUCTURED_EDGE_RESPONSE.ENABLE = False
 # cfg.CUSTOM_OPTIONS.ANNEALING_ITERATIONS = 5000
 # cfg.CUSTOM_OPTIONS.LOSS_TYPE_REG = 'mahalanobis_attenuation'
 # cfg.CUSTOM_OPTIONS.LOSS_TYPE_REG = 'smoothl1'
-cfg.CUSTOM_OPTIONS.LOSS_TYPE_REG = 'kl_batch_plus_loss_att'
+cfg.CUSTOM_OPTIONS.LOSS_TYPE_REG = 'wasserstein_over_chi_squared_plus_smoothl1'
 cfg.OUTPUT_DIR = '/network/tmp1/bhattdha/detectron2_coco/' + dir_name
 cfg.CUSTOM_OPTIONS.DETECTOR_TYPE = 'probabilistic'
 # cfg.CUSTOM_OPTIONS.STRUCTURED_EDGE_RESPONSE = True
@@ -97,10 +99,7 @@ cfg.CUSTOM_OPTIONS.DETECTOR_TYPE = 'probabilistic'
 # cfg.CUSTOM_OPTIONS.DETECTOR_TYPE = 'deterministic'
 cfg.CUSTOM_OPTIONS.ENCODING_TYPE = 'xyxy'
 
-cfg.SOLVER.IMS_PER_BATCH: 24
-cfg.SOLVER.BASE_LR: 1e-4
-cfg.SOLVER.STEPS: (210000, 250000)
-cfg.SOLVER.MAX_ITER: 270000
+
 
 if cfg.STRUCTURED_EDGE_RESPONSE.ENABLE:
     cfg.MODEL.PIXEL_MEAN = cfg.STRUCTURED_EDGE_RESPONSE.PIXEL_MEAN[cfg.STRUCTURED_EDGE_RESPONSE.INPUT_TYPE]
