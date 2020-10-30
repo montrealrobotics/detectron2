@@ -699,6 +699,7 @@ class StandardROIHeads(ROIHeads):
             self.smooth_l1_beta,
             self.loss_type,
             self.total_iterations,
+            cfg = self.cfg,
         )
 
         if self.training:
