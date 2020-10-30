@@ -40,12 +40,13 @@ cfg.merge_from_file("/home/mila/b/bhattdha/detectron2/configs/Cityscapes/faster_
 
 # cfg.DATASETS.TEST = ()   # no metrics implemented for this dataset
 cfg.DATALOADER.NUM_WORKERS = 8
-cfg.MODEL.WEIGHTS = "/network/tmp1/bhattdha/detectron2_cityscapes/cityscapes_deterministic/cityscapes_deterministic.pth"
+cfg.CUSTOM_OPTIONS.LOSS_WEIGHTS = [0.5, 0.5] 
+cfg.MODEL.WEIGHTS = "/network/tmp1/bhattdha/detectron2_cityscapes/variance_loss_unfrozen_uncertainty_head/model_0001999.pth"
 # cfg.MODEL.WEIGHTS = "/network/tmp1/bhattdha/detectron2_kitti/resnet-26_FPN_3x_scratch/model_start.pth"
 # cfg.MODEL.WEIGHTS = "/network/tmp1/bhattdha/detectron2_kitti/model_0014999.pth"  # initialize fron deterministic model
 cfg.SOLVER.IMS_PER_BATCH = 16
 # cfg.SOLVER.BASE_LR = 0.02
-cfg.SOLVER.BASE_LR = 1e-1
+cfg.SOLVER.BASE_LR = 1e-3
 cfg.SOLVER.MAX_ITER =  10000
 # cfg.MODEL.ROI_HEADS.BATCH_SIZE_PER_IMAGE = 512
 cfg.OUTPUT_DIR = '/network/tmp1/bhattdha/detectron2_cityscapes/' + dir_name
@@ -56,7 +57,7 @@ cfg.SOLVER.CHECKPOINT_PERIOD = 500
 # cfg.MODEL.ROI_HEADS.POSITIVE_FRACTION = 0.99
 # cfg.MODEL.ROI_HEADS.PROPOSAL_APPEND_GT = True
 cfg.CUSTOM_OPTIONS.DETECTOR_TYPE = 'probabilistic'
-cfg.CUSTOM_OPTIONS.LOSS_TYPE_REG = 'variance_loss'
+cfg.CUSTOM_OPTIONS.LOSS_TYPE_REG = 'kl_div_chi_sq_closed_form_plus_smoothl1'
 
 # cfg.CUSTOM_OPTIONS.DETECTOR_TYPE = 'deterministic'
 
@@ -99,9 +100,9 @@ for name, p in trainer.model.named_parameters():
 	if 'roi_heads' not in name:
 		print(name)
 		p.requires_grad = False
-	if name not in uncertainty_heads_name: # and name not in regression_heads_name:
-		print(name)
-		p.requires_grad = False
+	# if name not in uncertainty_heads_name: # and name not in regression_heads_name:
+	# 	print(name)
+	# 	p.requires_grad = False
 
 
 print("Start training!")
