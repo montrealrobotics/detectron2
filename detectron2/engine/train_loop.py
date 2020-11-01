@@ -226,16 +226,20 @@ class SimpleTrainer(TrainerBase):
         """
         self.optimizer.zero_grad()
         
-
+        loss_huge = 5000
         # losses.backward()
 
         # To avoid bad gradients, this is a temporary "hack" and probably very bad thing to do too, come back again to fix!!
-        if losses.item() < 5000:
+        ## we do not do backward pass when we are collecting residuals or the loss has exploded!
+        if losses.item() < loss_huge and self.cfg.CUSTOM_OPTIONS.LOSS_TYPE_REG is not 'collect_residuals':
             # print("Doing nothing")
             losses.backward()
             self.optimizer.step()
         else:
-            print("THE LOSSS RIGHT NOW ISSSS: ", losses.item())
+            if losses.item() > loss_huge:
+                print("Not training because loss is {}".format(losses.item()))
+            else:
+                print("Not training as collecting residuals.")
             # losses.backward()
         
         ## getting rid of the bad way of doing things! Gradient clipping now. 

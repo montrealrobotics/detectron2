@@ -6,7 +6,7 @@ import torch
 from fvcore.nn import smooth_l1_loss
 from torch import nn
 from torch.nn import functional as F
-
+import os
 from copy import deepcopy
 from detectron2.layers import batched_nms, cat
 from detectron2.structures import Boxes, Instances
@@ -590,8 +590,6 @@ class FastRCNNOutputs(object):
         gts = gt_proposal_deltas[fg_inds].flatten()
         variance = self.pred_proposal_uncertain[fg_inds[:, None], gt_class_cols].flatten()
 
-        ## very dangerous piece of code, do not uncomment it without expert supervision
-
         std_normal_samples = (gts - preds) / variance.sqrt()
         our_stuff = std_normal_samples.detach().clone().cpu().numpy()
         print("shape of residual vector is {}".format(our_stuff.shape))
@@ -602,9 +600,10 @@ class FastRCNNOutputs(object):
         else: 
             dist_save = np.concatenate((dist_save, our_stuff),axis=0)
 
-        if self.curr_iteration == 50:
+        if self.curr_iteration == self.cfg.CUSTOM_OPTIONS.RESIDUAL_MAX_ITER:
+            ## we have to save the residuals now!
             print("The shape of dist_save is: {}".format(dist_save.shape))
-            np.save(f'/network/tmp1/bhattdha/detectron2_cityscapes/cityscapes_loss_att_unfrozen_reg_uncert_head/unigaussians_cityscapes_loss_att_unfrozen_reg_uncert_head.npy', np.array(dist_save))
+            np.save(self.cfg.CUSTOM_OPTIONS.RESIDUAL_FILE_NAME, np.array(dist_save))
             import sys; sys.exit(0)
 
         return 0

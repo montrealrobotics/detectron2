@@ -580,6 +580,10 @@ _C.CUSTOM_OPTIONS.DETECTOR_TYPE = 'probabilistic'
 _C.CUSTOM_OPTIONS.ENCODING_TYPE = 'xyxy'
 
 """
+
+In this one, if the loss type is collect_residuals, nothing will train, it will just 
+run the code until it collects rediduals from the entire dataset. 
+
 loss type regression when DETECTOR_TYPE is probabilistic: ['collect_residuals',
 														 	'variance_loss',
 															'smooth_l1',
@@ -628,6 +632,9 @@ _C.CUSTOM_OPTIONS.CORRUPT_BG = False
 
 ## weights for losses(for smoothl1 + calibration loss setup!)
 _C.CUSTOM_OPTIONS.LOSS_WEIGHTS = [1, 1] 
+
+## file name of the residual file to be stored
+_C.CUSTOM_OPTIONS.RESIDUAL_FILE_NAME = 'file_name'
 
 ## Option around input and structured edge response
 _C.STRUCTURED_EDGE_RESPONSE = CN()
