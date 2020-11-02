@@ -40,7 +40,7 @@ cfg.merge_from_file("/home/mila/b/bhattdha/detectron2/configs/Cityscapes/faster_
 
 # cfg.DATASETS.TEST = ()   # no metrics implemented for this dataset
 cfg.DATALOADER.NUM_WORKERS = 8
-cfg.CUSTOM_OPTIONS.LOSS_WEIGHTS = [0.5, 0.5] 
+cfg.CUSTOM_OPTIONS.LOSS_WEIGHTS = [0.9, 0.1] 
 cfg.MODEL.WEIGHTS = "/network/tmp1/bhattdha/detectron2_cityscapes/variance_loss_unfrozen_uncertainty_head/model_0001999.pth"
 # cfg.MODEL.WEIGHTS = "/network/tmp1/bhattdha/detectron2_kitti/resnet-26_FPN_3x_scratch/model_start.pth"
 # cfg.MODEL.WEIGHTS = "/network/tmp1/bhattdha/detectron2_kitti/model_0014999.pth"  # initialize fron deterministic model
