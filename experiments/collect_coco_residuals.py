@@ -64,9 +64,12 @@ cfg.CUSTOM_OPTIONS.LOSS_TYPE_REG = 'collect_residuals'
 cfg.DATASETS.TRAIN = ("coco_2017_val",)
 
 ## filename by which the model's residuals is to be stored!
-cfg.CUSTOM_OPTIONS.RESIDUAL_FILE_NAME = os.path.join(cfg.OUTPUT_DIR, dir_name + '_' + model_name[:-4] + '_coco.npy')
+cfg.CUSTOM_OPTIONS.RESIDUAL_DIR_NAME = os.path.join(model_dir_path, 'residuals_storage')
+cfg.CUSTOM_OPTIONS.MODEL_NAME = model_name[:-4]  ## we don't want ".pth"
 
 os.makedirs(cfg.OUTPUT_DIR, exist_ok=True)
+os.makedirs(cfg.CUSTOM_OPTIONS.RESIDUAL_DIR_NAME, exist_ok=True)
+
 trainer = DefaultTrainer(cfg) 
 trainer.resume_or_load(resume=False) ## so it starts from the model we give
 
