@@ -597,27 +597,6 @@ class FastRCNNOutputs(object):
             # we do not perform bounding box regression for background classes.
             gt_class_cols = box_dim * fg_gt_classes[:, None] + torch.arange(box_dim, device=device)
 
-        ### 
-
-        ##############################################################################################################################################################################
-
-        ## very dangerous piece of code, do not uncomment it without expert supervision
-
-        # our_imp_stuff = ((self.pred_proposal_deltas[fg_inds[:, None], gt_class_cols] - gt_proposal_deltas[fg_inds])**2/(self.pred_proposal_uncertain[fg_inds[:, None], gt_class_cols]))
-        # our_stuff = our_imp_stuff.detach().clone().cpu().numpy()
-        # global dist_save
-        # if dist_save is 0:
-        #     dist_save = our_stuff
-        # else: 
-        #     dist_save = np.concatenate((dist_save, our_stuff),axis=0)
-
-        # if self.curr_iteration == 1000:
-        #     print("The shape of dist_save is: {}".format(dist_save.shape))
-        #     np.save(f'/home/mila/b/bhattdha/detectron2/unigaussians.npy', np.array(dist_save))
-        #     import sys; sys.exit(0)
-
-
-        ##############################################################################################################################################################################
 
         ## Computing the loss attenuation
         loss_attenuation_final = ((self.pred_proposal_deltas[fg_inds[:, None], gt_class_cols] - gt_proposal_deltas[fg_inds])**2/(self.pred_proposal_uncertain[fg_inds[:, None], gt_class_cols]) + torch.log(self.pred_proposal_uncertain[fg_inds[:, None], gt_class_cols])).sum()/self.gt_classes.numel()
@@ -734,6 +713,7 @@ class FastRCNNOutputs(object):
 
         chi_sq_samples = torch.stack(chi_sq_samples)
 
+
         emp_mean = chi_sq_samples.mean()
         emp_var = chi_sq_samples.var()
         gt_mean = dof
@@ -747,6 +727,12 @@ class FastRCNNOutputs(object):
         print("Emp mean and emp variance are {} {}".format(mu2, var2))
         wasserstein_distance = ((mu1 - mu2)**2 + var1 + var2 - 2*(var1*var2)**0.5) * 1e-3
         print("wasserstein loss is {}".format(wasserstein_distance))
+
+
+        storage = get_event_storage()
+        storage.put_scalars(gt_mean=gt_mean,gt_variance= gt_variance,emp_mean=emp_mean,emp_variance=emp_var)
+        
+        storage.put_scalar("wasserstein_loss/chi-squared", wasserstein_distance)
 
         return wasserstein_distance         
 
@@ -805,6 +791,16 @@ class FastRCNNOutputs(object):
         print("Emp mean and emp variance are {} {}".format(mu2, var2))
         wasserstein_distance = ((mu1 - mu2)**2 + var1 + var2 - 2*(var1*var2)**0.5) * 10
         print("wasserstein loss is {}".format(wasserstein_distance))
+
+        storage = get_event_storage()
+        # storage.put_scalars("wasserstein/standard-normal", {'gt_mean': gt_mean,
+        #                                                 'gt_variance': gt_variance,
+        #                                                 'emp_mean': emp_mean,
+        #                                                 'emp_variance': emp_var})
+
+        storage.put_scalars(gt_mean=gt_mean,gt_variance= gt_variance,emp_mean=emp_mean,emp_variance=emp_var)
+
+        storage.put_scalar("wasserstein_loss/standard-normal", wasserstein_distance)
 
         return wasserstein_distance         
 
@@ -880,6 +876,16 @@ class FastRCNNOutputs(object):
 
         kldivergence = torch.distributions.kl.kl_divergence(our_dist, actual_dist) * 0.2
         print("kl_div_chi_sq_closed_form is: {}".format(kldivergence))
+
+        storage = get_event_storage()
+        # storage.put_scalars("KLD/chi-squared", {'gt_mean': gt_mean,
+        #                                         'gt_variance': gt_variance,
+        #                                         'emp_mean': emp_mean,
+        #                                         'emp_variance': emp_var})
+
+        storage.put_scalars(gt_mean=gt_mean,gt_variance= gt_variance,emp_mean=emp_mean,emp_variance=emp_var)
+        storage.put_scalar("KLD-closed-form/chi-squared", kldivergence)
+
         return kldivergence
 
     def kl_div_standard_normal_closed_form(self):
@@ -942,6 +948,17 @@ class FastRCNNOutputs(object):
         # https://pytorch.org/docs/stable/_modules/torch/distributions/kl.html#kl_divergence
         kldivergence = torch.distributions.kl.kl_divergence(our_dist, actual_dist) 
         print("kl_div_standard_normal_closed_form is {}".format(kldivergence))
+
+
+        storage = get_event_storage()
+        # storage.put_scalars("KLD/standard-normal", {'gt_mean': gt_mean,
+        #                                                 'gt_variance': gt_variance,
+        #                                                 'emp_mean': emp_mean,
+        #                                                 'emp_variance': emp_var})
+
+        storage.put_scalars(gt_mean=gt_mean,gt_variance= gt_variance,emp_mean=emp_mean,emp_variance=emp_var)
+        storage.put_scalar("KLD-closed-form/standard-normal", kldivergence)
+
         return kldivergence
 
     def kl_div_chi_sq_empirical(self):
@@ -1027,6 +1044,17 @@ class FastRCNNOutputs(object):
         ## https://pytorch.org/docs/stable/_modules/torch/nn/modules/loss.html#KLDivLoss
         kldivergence = F.kl_div(actual_normalized_log_probs, true_normalized_log_probs.exp(), reduction = 'mean')
         print("kl_div_chi_sq_empirical is: {}".format(kldivergence))
+
+        storage = get_event_storage()
+        # storage.put_scalars("KLD/chi-squared", {'gt_mean': gt_mean,
+        #                                                 'gt_variance': gt_variance,
+        #                                                 'emp_mean': emp_mean,
+        #                                                 'emp_variance': emp_var})
+
+        storage.put_scalars(gt_mean=gt_mean,gt_variance= gt_variance,emp_mean=emp_mean,emp_variance=emp_var)
+
+        storage.put_scalar("KLD-empirical/chi-squared", kldivergence)
+
         return kldivergence
 
     def kl_div_standard_normal_empirical(self):
@@ -1097,6 +1125,15 @@ class FastRCNNOutputs(object):
 
         kldivergence = F.kl_div(actual_normalized_log_probs, true_normalized_log_probs.exp(), reduction = 'sum')
         print("kl_div_standard_normal_empirical is: {}".format(kldivergence))
+
+        storage = get_event_storage()
+        # storage.put_scalars("KLD/standard-normal", {'gt_mean': gt_mean,
+        #                                                 'gt_variance': gt_variance,
+        #                                                 'emp_mean': emp_mean,
+        #                                                 'emp_variance': emp_var})
+
+        storage.put_scalars(gt_mean=gt_mean,gt_variance= gt_variance,emp_mean=emp_mean,emp_variance=emp_var)
+        storage.put_scalar("KLD-empirical/standard-normal", kldivergence)
 
         return kldivergence
 
@@ -1177,6 +1214,15 @@ class FastRCNNOutputs(object):
 
         jsdivergence = (torch.distributions.kl.kl_divergence(our_dist, mix_dist) +  torch.distributions.kl.kl_divergence(actual_dist, mix_dist) )/ 200*dof
 
+        storage = get_event_storage()
+        # storage.put_scalars("JSD/chi-squared", {'gt_mean': gt_mean,
+        #                                                 'gt_variance': gt_variance,
+        #                                                 'emp_mean': emp_mean,
+        #                                                 'emp_variance': emp_var})
+
+        storage.put_scalars(gt_mean=gt_mean,gt_variance= gt_variance,emp_mean=emp_mean,emp_variance=emp_var)
+        storage.put_scalar("JSD-closed-form/chi-squared", jsdivergence)
+
         return jsdivergence
 
     def js_div_standard_normal_closed_form(self):
@@ -1219,26 +1265,6 @@ class FastRCNNOutputs(object):
         gts = gt_proposal_deltas[fg_inds].flatten()
         variance = self.pred_proposal_uncertain[fg_inds[:, None], gt_class_cols].flatten()
 
-        ##############################################################################################################################################################################
-
-        ## very dangerous piece of code, do not uncomment it without expert supervision
-
-        # std_normal_samples = (gts - preds) / variance.sqrt()
-        # our_stuff = std_normal_samples.detach().clone().cpu().numpy()
-        # global dist_save
-        # if dist_save is 0:
-        #     dist_save = our_stuff
-        # else: 
-        #     dist_save = np.concatenate((dist_save, our_stuff),axis=0)
-
-        # if self.curr_iteration == 100:
-        #     print("The shape of dist_save is: {}".format(dist_save.shape))
-        #     np.save(f'/network/tmp1/bhattdha/detectron2_cityscapes/js_div_standard_normal_closed_form_plus_smoothl1_uncert_reg_unfrozen/unigaussians_js_div_standard_normal_closed_form_plus_smoothl1_uncert_reg_unfrozen.npy', np.array(dist_save))
-        #     import sys; sys.exit(0)
-
-
-        ##############################################################################################################################################################################
-
         std_normal_samples = (gts - preds) / variance.sqrt()
 
         emp_mean = std_normal_samples.mean()
@@ -1261,6 +1287,16 @@ class FastRCNNOutputs(object):
 
         jsdivergence = (torch.distributions.kl.kl_divergence(our_dist, mix_dist) +  torch.distributions.kl.kl_divergence(actual_dist, mix_dist) )/ 2
         print("js_div_standard_normal_closed_form loss is: {}".format(jsdivergence.item()))
+
+        storage = get_event_storage()
+        # storage.put_scalars("JSD/standard-normal", {'gt_mean': gt_mean,
+        #                                                 'gt_variance': gt_variance,
+        #                                                 'emp_mean': emp_mean,
+        #                                                 'emp_variance': emp_var})
+        storage.put_scalars(gt_mean=gt_mean,gt_variance= gt_variance,emp_mean=emp_mean,emp_variance=emp_var)
+
+        storage.put_scalar("JSD-closed-form/standard-normal", jsdivergence)
+
         return jsdivergence
 
 
@@ -1303,26 +1339,6 @@ class FastRCNNOutputs(object):
         preds = self.pred_proposal_deltas[fg_inds[:, None], gt_class_cols].flatten()
         gts = gt_proposal_deltas[fg_inds].flatten()
         variance = self.pred_proposal_uncertain[fg_inds[:, None], gt_class_cols].flatten()
-
-        ##############################################################################################################################################################################
-
-        ## very dangerous piece of code, do not uncomment it without expert supervision
-
-        # std_normal_samples = (gts - preds) / variance.sqrt()
-        # our_stuff = std_normal_samples.detach().clone().cpu().numpy()
-        # global dist_save
-        # if dist_save is 0:
-        #     dist_save = our_stuff
-        # else: 
-        #     dist_save = np.concatenate((dist_save, our_stuff),axis=0)
-
-        # if self.curr_iteration == 100:
-        #     print("The shape of dist_save is: {}".format(dist_save.shape))
-        #     np.save(f'/network/tmp1/bhattdha/detectron2_cityscapes/js_div_chi_sq_empirical_plus_smoothl1_uncert_reg_unfrozen/unigaussians_js_div_chi_sq_empirical_plus_smoothl1_uncert_reg_unfrozen.npy', np.array(dist_save))
-        #     import sys; sys.exit(0)
-
-
-        ##############################################################################################################################################################################
 
         rng = default_rng()
         dof = 75
@@ -1376,6 +1392,16 @@ class FastRCNNOutputs(object):
         ## https://pytorch.org/docs/stable/_modules/torch/nn/modules/loss.html#KLDivLoss
         jsdivergence = (F.kl_div(actual_normalized_log_probs, mix_normalized_log_probs.exp(), reduction = 'sum') +  F.kl_div(actual_normalized_log_probs, mix_normalized_log_probs.exp(), reduction = 'sum')) / 2.0
         print("js_div_chi_sq_empirical is {}".format(jsdivergence.item()))
+
+        storage = get_event_storage()
+        # storage.put_scalars("JSD/chi-squared", {'gt_mean': gt_mean,
+        #                                                 'gt_variance': gt_variance,
+        #                                                 'emp_mean': emp_mean,
+        #                                                 'emp_variance': emp_var})
+
+        storage.put_scalars(gt_mean=gt_mean,gt_variance= gt_variance,emp_mean=emp_mean,emp_variance=emp_var)
+        storage.put_scalar("JSD-empirical/chi-squared", jsdivergence)
+
 
         return jsdivergence
 
@@ -1462,6 +1488,16 @@ class FastRCNNOutputs(object):
         ## https://pytorch.org/docs/stable/_modules/torch/nn/modules/loss.html#KLDivLoss, reduction = 'mean'
         jsdivergence = (F.kl_div(actual_normalized_log_probs, mix_normalized_log_probs.exp(), reduction = 'sum') +  F.kl_div(actual_normalized_log_probs, mix_normalized_log_probs.exp(), reduction = 'sum')) / 2.0
         print("js_div_standard_normal_empirical is {}".format(jsdivergence.item()))
+
+        storage = get_event_storage()
+        # storage.put_scalars("JSD/standard-normal", {'gt_mean': gt_mean,
+        #                                                 'gt_variance': gt_variance,
+        #                                                 'emp_mean': emp_mean,
+        #                                                 'emp_variance': emp_var})
+
+
+        storage.put_scalars(gt_mean=gt_mean,gt_variance= gt_variance,emp_mean=emp_mean,emp_variance=emp_var)
+        storage.put_scalar("JSD-empirical/standard-normal", jsdivergence)
 
         return jsdivergence
 
