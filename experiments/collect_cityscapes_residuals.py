@@ -39,7 +39,7 @@ model_dir_path = os.path.join('/network/tmp1/bhattdha/detectron2_cityscapes/', d
 
 model_full_path = os.path.join(model_dir_path, model_name)
 
-assert os.path.exists(model_full_path), 'Given model named {} doesnt exist at path {}'.format(model_namem, model_dir_path)
+assert os.path.exists(model_full_path), 'Given model named {} doesnt exist at path {}'.format(model_name, model_dir_path)
 
 cfg = get_cfg()
 # cfg.merge_from_file("/network/home/bhattdha/detectron2/configs/COCO-Detection/faster_rcnn_R_26_FPN_3x.yaml")
@@ -64,9 +64,12 @@ cfg.CUSTOM_OPTIONS.LOSS_TYPE_REG = 'collect_residuals'
 cfg.DATASETS.TRAIN = ("cityscapes_fine_instance_seg_val",)
 
 ## filename by which the model's residuals is to be stored!
-cfg.CUSTOM_OPTIONS.RESIDUAL_FILE_NAME = os.path.join(cfg.OUTPUT_DIR, dir_name + '_' + model_name[:-4] + '_cityscapes.npy')
+cfg.CUSTOM_OPTIONS.RESIDUAL_DIR_NAME = os.path.join(model_dir_path, 'residuals_storage')
+cfg.CUSTOM_OPTIONS.MODEL_NAME = model_name[:-4]  ## we don't want ".pth"
 
 os.makedirs(cfg.OUTPUT_DIR, exist_ok=True)
+os.makedirs(cfg.CUSTOM_OPTIONS.RESIDUAL_DIR_NAME, exist_ok=True)
+
 trainer = DefaultTrainer(cfg) 
 trainer.resume_or_load(resume=False) ## so it starts from the model we give
 

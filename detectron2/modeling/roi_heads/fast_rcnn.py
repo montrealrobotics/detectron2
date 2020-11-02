@@ -11,6 +11,9 @@ from copy import deepcopy
 from detectron2.layers import batched_nms, cat
 from detectron2.structures import Boxes, Instances
 from detectron2.utils.events import get_event_storage
+import seaborn as sns
+from scipy.stats import norm
+import matplotlib.pyplot as plt
 
 logger = logging.getLogger(__name__)
 
@@ -41,6 +44,71 @@ Naming convention:
 
     gt_proposal_deltas: ground-truth box2box transform deltas
 """
+
+
+def store_and_plot_residuals(residual_variable = None, cfg = None):
+
+
+    #######################################
+    ## This is a helper function to store and plot
+    ## chi-sqaured corresponding to the residuals collected!
+    #######################################
+
+    assert residual_variable is not None
+    assert cfg is not None
+
+    dists = residual_variable.flatten()
+    mean_dist = dists.mean()
+    variance_dist = dists.var()
+
+    mu, std = norm.fit(dists)
+    print("Mean and variance are: ", mu, std**2)
+
+    plt.hist(dists, bins=100, density=True, alpha=0.6, color='g')
+
+    # Plot the PDF.
+    xmin, xmax = plt.xlim()
+    x = np.linspace(xmin, xmax, 100)
+    p = norm.pdf(x, mu, std)
+    plt.plot(x, p, 'k', linewidth=2)
+    title = "Fit results: mu = %.2f,  variance = %.2f" % (mu, std**2)
+    plt.title(title)
+    plt.savefig(os.path.join(cfg.CUSTOM_OPTIONS.RESIDUAL_DIR_NAME, cfg.CUSTOM_OPTIONS.MODEL_NAME + '_standard_normal.png')) 
+    plt.clf()
+
+
+    df = 100
+    dists = dists**2
+    dists = np.random.permutation(dists)
+
+    samples = []
+
+    for i in range(1):
+        dists = np.random.permutation(dists)
+        for j in np.arange(0, len(dists) - df, df):
+            # print('i is: ', i)
+            dist_vals = dists[j:(j+df)]
+            samples.append(dist_vals.sum())
+
+    samples = np.array(samples)
+    data = samples
+
+    # Fit a normal distribution to the data:
+    mu, std = norm.fit(data)
+    print("Mean and variance are: ", mu, std**2)
+    # Plot the histogram.
+    plt.hist(data, bins=100, density=True, alpha=0.6, color='g')
+
+    # Plot the PDF.
+    xmin, xmax = plt.xlim()
+    x = np.linspace(xmin, xmax, 100)
+    p = norm.pdf(x, mu, std)
+    plt.plot(x, p, 'k', linewidth=2)
+    title = "Fit results: mu = %.2f,  std = %.2f" % (mu, std)
+    plt.title(title)
+    plt.savefig(os.path.join(cfg.CUSTOM_OPTIONS.RESIDUAL_DIR_NAME, cfg.CUSTOM_OPTIONS.MODEL_NAME + '_chi_squared.png')) 
+
+    return 0
 
 
 def fast_rcnn_inference(boxes, scores, sigma, image_shapes, score_thresh, nms_thresh, topk_per_image):
@@ -603,7 +671,8 @@ class FastRCNNOutputs(object):
         if self.curr_iteration == self.cfg.CUSTOM_OPTIONS.RESIDUAL_MAX_ITER:
             ## we have to save the residuals now!
             print("The shape of dist_save is: {}".format(dist_save.shape))
-            np.save(self.cfg.CUSTOM_OPTIONS.RESIDUAL_FILE_NAME, np.array(dist_save))
+            val = store_and_plot_residuals(residual_variable = dist_save, cfg = self.cfg)
+            np.save(os.path.join(self.cfg.CUSTOM_OPTIONS.RESIDUAL_DIR_NAME, self.cfg.CUSTOM_OPTIONS.MODEL_NAME + '.npy'), np.array(dist_save))
             import sys; sys.exit(0)
 
         return 0

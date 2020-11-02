@@ -634,7 +634,15 @@ _C.CUSTOM_OPTIONS.CORRUPT_BG = False
 _C.CUSTOM_OPTIONS.LOSS_WEIGHTS = [1, 1] 
 
 ## file name of the residual file to be stored
-_C.CUSTOM_OPTIONS.RESIDUAL_FILE_NAME = 'file_name'
+_C.CUSTOM_OPTIONS.RESIDUAL_DIR_NAME = 'dir_name'
+
+## model for which residuals are collected
+_C.CUSTOM_OPTIONS.MODEL_NAME = 'model_main'
+
+## in how many iterations will the residuals of the entire
+## dataset be collected? This should be changed based on 
+## length of the dataset!
+_C.CUSTOM_OPTIONS.RESIDUAL_MAX_ITER = 100
 
 ## Option around input and structured edge response
 _C.STRUCTURED_EDGE_RESPONSE = CN()
