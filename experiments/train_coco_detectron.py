@@ -73,16 +73,16 @@ cfg.merge_from_file("/home/mila/b/bhattdha/detectron2/configs/COCO-Detection/fas
 
 
 cfg.SOLVER.IMS_PER_BATCH = 24
-cfg.SOLVER.BASE_LR = 1e-3
+cfg.SOLVER.BASE_LR = 0.03
 # cfg.SOLVER.STEPS: (210000, 250000)
-cfg.SOLVER.MAX_ITER = 40000
+cfg.SOLVER.MAX_ITER = 20000
 
 cfg.DATASETS.TEST = ()
 cfg.DATALOADER.NUM_WORKERS = 2
-cfg.CUSTOM_OPTIONS.LOSS_WEIGHTS = [0.8, 0.2] 
+# cfg.CUSTOM_OPTIONS.LOSS_WEIGHTS = [1.5, 0.7] 
 # cfg.MODEL.WEIGHTS = "detectron2://COCO-Detection/faster_rcnn_R_50_FPN_3x/137849458/model_final_280758.pkl"  # initialize from model zoo
 # cfg.MODEL.WEIGHTS = "/home/mila/b/bhattdha/model_final_f6e8b1.pkl"
-cfg.MODEL.WEIGHTS = "/network/tmp1/bhattdha/detectron2_coco/loss_att_unfrozen_uncert_head/model_0009999.pth"
+cfg.MODEL.WEIGHTS = "/network/tmp1/bhattdha/detectron2_coco/coco_xyxy_deterministic/model_0009999.pth"
 cfg.SOLVER.CHECKPOINT_PERIOD = 2500  
 # cfg.MODEL.ROI_HEADS.BATCH_SIZE_PER_IMAGE = 512
 cfg.CUSTOM_OPTIONS.RPN_FORGROUND_LOSS_ONLY = False
@@ -91,14 +91,13 @@ cfg.STRUCTURED_EDGE_RESPONSE.ENABLE = False
 # cfg.CUSTOM_OPTIONS.ANNEALING_ITERATIONS = 5000
 # cfg.CUSTOM_OPTIONS.LOSS_TYPE_REG = 'mahalanobis_attenuation'
 # cfg.CUSTOM_OPTIONS.LOSS_TYPE_REG = 'smoothl1'
-cfg.CUSTOM_OPTIONS.LOSS_TYPE_REG = 'kl_div_chi_sq_closed_form_plus_smoothl1'
+cfg.CUSTOM_OPTIONS.LOSS_TYPE_REG = 'loss_att'
 cfg.OUTPUT_DIR = '/network/tmp1/bhattdha/detectron2_coco/' + dir_name
 cfg.CUSTOM_OPTIONS.DETECTOR_TYPE = 'probabilistic'
 # cfg.CUSTOM_OPTIONS.STRUCTURED_EDGE_RESPONSE = True
 
-# cfg.CUSTOM_OPTIONS.DETECTOR_TYPE = 'deterministic'
-cfg.CUSTOM_OPTIONS.ENCODING_TYPE = 'xyxy'
 
+cfg.CUSTOM_OPTIONS.ENCODING_TYPE = 'xyxy'
 
 
 if cfg.STRUCTURED_EDGE_RESPONSE.ENABLE:
@@ -126,16 +125,39 @@ trainer.resume_or_load(resume=True)
 print("start training")
 print("The checkpoint iteration value is: ", cfg.SOLVER.CHECKPOINT_PERIOD)
 
+
 uncertainty_heads_name = ['roi_heads.box_predictor.bbox_uncertainty_pred.weight',
 'roi_heads.box_predictor.bbox_uncertainty_pred.bias']
+regression_heads_name = ['roi_heads.box_predictor.bbox_pred.weight',
+'roi_heads.box_predictor.bbox_pred.bias']
+
+stage_1_info = 'unfrozen'
+uncertainty_head = None
 
 for name, p in trainer.model.named_parameters():
 	if 'roi_heads' not in name:
+		if stage_1_info is 'unfrozen':
+			stage_1_info = 'frozen'
 		print(name)
 		p.requires_grad = False
-	# if name not in uncertainty_heads_name:
-	# 	print(name)
-	# 	p.requires_grad = False
+	if name not in uncertainty_heads_name: # and name not in regression_heads_name:
+		if uncertainty_head is None:
+			uncertainty_head = 'unfrozen'
+		print(name)
+		p.requires_grad = False
+
+if uncertainty_head == 'unfrozen':
+	model_info = 'This is a {} model being trained with {} loss. We are training it on {} dataset with batchsize {} and intial learning rate of {}. This model intialzes weights from {} file. We are training this model for {} iterations, which roughly translates into {} epochs. We have uncertainty_head unfrozen. Everything else is frozen. We store checkpoints at every {} iterations.'.format(cfg.CUSTOM_OPTIONS.DETECTOR_TYPE, cfg.CUSTOM_OPTIONS.LOSS_TYPE_REG, cfg.DATASETS.TRAIN[0], cfg.SOLVER.IMS_PER_BATCH,
+				cfg.SOLVER.BASE_LR, cfg.MODEL.WEIGHTS, cfg.SOLVER.MAX_ITER, cfg.SOLVER.IMS_PER_BATCH * cfg.SOLVER.MAX_ITER / 118287.0, cfg.SOLVER.CHECKPOINT_PERIOD)
+else:
+	model_info = 'This is a {} model being trained with {} loss. We are training it on {} dataset with batchsize {} and intial learning rate of {}. This model intialzes weights from {} file. We are training this model for {} iterations, which roughly translates into {} epochs. Our stage-1 is {}. Everything else is unfrozen. We store checkpoints at every {} iterations.'.format(cfg.CUSTOM_OPTIONS.DETECTOR_TYPE, cfg.CUSTOM_OPTIONS.LOSS_TYPE_REG, cfg.DATASETS.TRAIN[0], cfg.SOLVER.IMS_PER_BATCH,
+				cfg.SOLVER.BASE_LR, cfg.MODEL.WEIGHTS, cfg.SOLVER.MAX_ITER, cfg.SOLVER.IMS_PER_BATCH * cfg.SOLVER.MAX_ITER / 118287.0, stage_1_info, cfg.SOLVER.CHECKPOINT_PERIOD)
+
+text_file = open(os.path.join(cfg.OUTPUT_DIR, 'model_info.txt'), "w")
+text_file.write("model_info: %s" % model_info)
+text_file.close()
+
+print(model_info)
 
 trainer.train()
 
