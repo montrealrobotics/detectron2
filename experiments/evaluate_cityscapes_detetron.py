@@ -86,13 +86,15 @@ for model_path in model_paths:
     # import ipdb; ipdb.set_trace()
     ## Evaluation happens here
     
-    evaluator = COCOEvaluator("cityscapes_fine_instance_seg_val", cfg, False, output_dir=dir_name + '/' + model_name)
+    evaluator = COCOEvaluator("cityscapes_fine_instance_seg_val", cfg, False, output_dir=os.path.join(model_dir_path, 'results', model_name[:-4]))
     val_loader = build_detection_test_loader(cfg, "cityscapes_fine_instance_seg_val")
     results  = inference_on_dataset(predictor.model, val_loader, evaluator)
+    np.save(os.path.join(model_dir_path, 'results', model_name[:-4], 'results.npy'), results)
     final_results[model_name] = results
     # print(results)
+
 print(final_results)
-np.save(os.path.join(os.getcwd(), dir_name, 'final_results.npy'), final_results)
+np.save(os.path.join(model_dir_path, 'results','final_results.npy'), final_results)
 import ipdb; ipdb.set_trace()
 
 # from detectron2.utils.visualizer import ColorMode
