@@ -579,6 +579,13 @@ _C.CUSTOM_OPTIONS.DETECTOR_TYPE = 'probabilistic'
 ## Could be 'xyxy' or 'xywh'
 _C.CUSTOM_OPTIONS.ENCODING_TYPE = 'xyxy'
 
+## if this is enabled, we do training on partial dataset only
+_C.CUSTOM_OPTIONS.TEMP_SCALE_TRAINING = False
+
+## when this is true, we freeze the model, and only 
+## train temp parameter!
+_C.CUSTOM_OPTIONS.TEMP_SCALE_ENABLED = False
+
 """
 
 In this one, if the loss type is collect_residuals, nothing will train, it will just 
@@ -586,9 +593,10 @@ run the code until it collects rediduals from the entire dataset.
 
 loss type regression when DETECTOR_TYPE is probabilistic: ['collect_residuals',
 														 	'variance_loss',
+														 	'collect_training_stats',
 															'smooth_l1',
 															'loss_att',
-															'loss_cal', 
+															'loss_calibration', 
 															'mahalanobis_attenuation', 
 															'wasserstein_over_chi_squared',
 															'wasserstein_over_chi_squared_plus_smoothl1',
@@ -620,12 +628,12 @@ _C.CUSTOM_OPTIONS.LOSS_TYPE_REG = 'loss_att'
 _C.CUSTOM_OPTIONS.RICHARD_CURVE_LOW = 1e-20
 _C.CUSTOM_OPTIONS.RICHARD_CURVE_HIGH = 50
 _C.CUSTOM_OPTIONS.RICHARD_CURVE_SHARP = 0.15
-
+_C.CUSTOM_OPTIONS.LEARN_RC_SHARPNESS = False ## whether we want to keep the sharpness of richard's curve learnable or not
 ## parameters for RPN loss
 _C.CUSTOM_OPTIONS.RPN_FORGROUND_LOSS_ONLY = False
 
 ## over how many iterations the weights are annealed
-_C.CUSTOM_OPTIONS.ANNEALING_ITERATIONS = 15000
+_C.CUSTOM_OPTIONS.ANNEALING_ITERATIONS = 25
 
 ## whether we should corrupt background in stage-2 or not
 _C.CUSTOM_OPTIONS.CORRUPT_BG = False
@@ -648,6 +656,10 @@ _C.CUSTOM_OPTIONS.RESIDUAL_MAX_ITER = 100
 _C.STRUCTURED_EDGE_RESPONSE = CN()
 ## do we want structured edge response?
 _C.STRUCTURED_EDGE_RESPONSE.ENABLE = False
+
+### new uncertainty head is much more complicated with multiple non-linearities
+_C.CUSTOM_OPTIONS.NEW_UNCERTAINTY_HEAD = False
+
 
 ## types: ["BGR", "RGBEDGE", "EDGE", "GREY", "GREYEDGE", "RGBCONCATEDGE", "GREYCONCATEDGE"]
 ## #channels: [3, 3, 1, 1, 1, 4, 2]

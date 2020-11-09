@@ -61,9 +61,8 @@ for model_path in model_paths:
 
     # loading config used during train time
     # cfg_dict = torch.load('/network/tmp1/bhattdha/detectron2_kitti/resnet-50_FPN/resnet-50_FPN_cfg.final')
-    cfg_dict = torch.load('/network/tmp1/bhattdha/detectron2_coco/' + dir_name + '/' + dir_name + '_cfg.final')
+    cfg.merge_from_file('/network/tmp1/bhattdha/detectron2_coco/' + dir_name + '/' + dir_name + '_cfg.yaml')
 
-    cfg = cfg_dict['cfg']
     # cfg.MODEL.RPN.POST_NMS_TOPK_TEST = 1000
     
     cfg.DATASETS.TEST = ("coco_2017_val",)
@@ -96,8 +95,8 @@ for model_path in model_paths:
     np.save(os.path.join(model_dir_path, 'results', model_name[:-4], 'results.npy'), results)
     # print(results)
 
-np.save(os.path.join(model_dir_path, 'results','final_results.npy'), final_results)
-import ipdb; ipdb.set_trace()
+if model_name == "all":
+    np.save(os.path.join(model_dir_path, 'results','final_results.npy'), final_results)
 
 # from detectron2.utils.visualizer import ColorMode
 # time_inference = []

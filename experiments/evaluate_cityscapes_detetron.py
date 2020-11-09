@@ -59,8 +59,8 @@ for model_path in model_paths:
     # loading config used during train time
     # cfg_dict = torch.load('/network/tmp1/bhattdha/detectron2_kitti/resnet-50_FPN/resnet-50_FPN_cfg.final')
     # cfg_dict = torch.load('/network/tmp1/bhattdha/detectron2_cityscapes/first_stage_coco_frozen_R-101/first_stage_coco_frozen_R-101_cfg.final')
-    cfg_dict = torch.load('/network/tmp1/bhattdha/detectron2_cityscapes/' + dir_name + '/' + dir_name + '_cfg.final')
-    cfg = cfg_dict['cfg']
+    cfg.merge_from_file('/network/tmp1/bhattdha/detectron2_cityscapes/' + dir_name + '/' + dir_name + '_cfg.yaml')
+    # cfg = cfg_dict['cfg']
     cfg.MODEL.RPN.POST_NMS_TOPK_TEST = 1000
     
     cfg.DATASETS.TEST = ("cityscapes_fine_instance_seg_val",)   

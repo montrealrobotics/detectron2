@@ -45,6 +45,10 @@ Naming convention:
     gt_proposal_deltas: ground-truth box2box transform deltas
 """
 
+def init_weights(m):
+    if type(m) == nn.Linear:
+        nn.init.normal_(m.weight, std=0.001)
+        nn.init.constant_(m.bias, 0)
 
 def store_and_plot_residuals(residual_variable = None, cfg = None):
 
@@ -312,6 +316,9 @@ def getMahaThreshold(prob_val):
 curr_iteration = 0
 curr_weight_index = 0
 dist_save = 0
+mu = 0
+sigma = 0
+gt = 0
 
 class FastRCNNOutputs(object):
     """
@@ -445,8 +452,63 @@ class FastRCNNOutputs(object):
         ### 
 
         ## Computing the loss attenuation
-        error_loss = (self.pred_proposal_uncertain[fg_inds[:, None], gt_class_cols] - (self.pred_proposal_deltas[fg_inds[:, None], gt_class_cols] - gt_proposal_deltas[fg_inds])**2).sum()
+        error_loss = smooth_l1_loss(
+            self.pred_proposal_uncertain[fg_inds[:, None], gt_class_cols],
+            (self.pred_proposal_deltas[fg_inds[:, None], gt_class_cols] - gt_proposal_deltas[fg_inds])**2,
+            1,
+            reduction="sum",
+        )
         loss_cal_final = (((self.pred_proposal_deltas[fg_inds[:, None], gt_class_cols] - gt_proposal_deltas[fg_inds])**2/(self.pred_proposal_uncertain[fg_inds[:, None], gt_class_cols]) + torch.log(self.pred_proposal_uncertain[fg_inds[:, None], gt_class_cols])).sum() + error_loss)/self.gt_classes.numel() 
+
+        
+        ########################################################################################################################################################################################################################    
+        ###### In loss attenuation, we do keep track of mean and variance of chi-squared
+
+        preds = self.pred_proposal_deltas[fg_inds[:, None], gt_class_cols].flatten()
+        gts = gt_proposal_deltas[fg_inds].flatten()
+        variance = self.pred_proposal_uncertain[fg_inds[:, None], gt_class_cols].flatten()
+
+        rng = default_rng()
+        dof = 75
+        no_samples = 100
+
+        # assert len(preds) > dof*no_samples, 'DoF*no_samples and len(preds) are {} {}'.format(dof*no_samples, len(preds))
+
+        chi_sq_samples = []
+
+        for i in range(no_samples):            
+            indices = rng.choice(len(preds), size = dof, replace = False)
+            chi_sq_variable = (preds[indices] - gts[indices])**2 / variance[indices]
+            chi_sq_samples.append(chi_sq_variable.sum())
+
+        chi_sq_samples = torch.stack(chi_sq_samples)
+
+        emp_mean = chi_sq_samples.mean()
+        emp_var = chi_sq_samples.var()
+        gt_mean = dof
+        gt_variance = 2*dof
+
+        mu1 = gt_mean*torch.ones_like(emp_mean)
+        mu2 = emp_mean
+        var1 = gt_variance*torch.ones_like(emp_var)
+        var2 = emp_var
+
+        actual_dist = torch.distributions.normal.Normal(mu1, var1**(0.5))
+        our_dist = torch.distributions.normal.Normal(mu2, var2**(0.5))
+
+        print("Emp mean and emp variance are {} {}".format(mu2, var2))
+
+        kldivergence = torch.distributions.kl.kl_divergence(our_dist, actual_dist) * 0.2
+        print("kl_div_chi_sq_closed_form is: {}".format(kldivergence))
+
+        mse = ((self.pred_proposal_deltas[fg_inds[:, None], gt_class_cols] - gt_proposal_deltas[fg_inds])**2).mean()
+        predicted_variance = (self.pred_proposal_uncertain[fg_inds[:, None], gt_class_cols]).mean()
+
+        loss_att_first_term = mse / predicted_variance
+
+        storage = get_event_storage()
+        storage.put_scalars(gt_mean=gt_mean,gt_variance= gt_variance,emp_mean=emp_mean,emp_variance=emp_var, mse = mse, predicted_variance = predicted_variance, loss_att_first_term = loss_att_first_term, kl_divergence = kldivergence)
+        ########################################################################################################################################################################################################################
 
         return loss_cal_final
 
@@ -463,6 +525,8 @@ class FastRCNNOutputs(object):
         annealing_weight = self.annealing_weights[curr_weight_index]
         if annealing_weight > 1.0:
             annealing_weight = 1.0
+
+        annealing_weight = 1.0
         print("Annealing weight is: ", annealing_weight)
         gt_proposal_deltas = self.box2box_transform.get_deltas(
             self.proposals.tensor, self.gt_boxes.tensor
@@ -494,8 +558,55 @@ class FastRCNNOutputs(object):
             gt_class_cols = box_dim * fg_gt_classes[:, None] + torch.arange(box_dim, device=device)
 
 
+        ########################################################################################################################################################################################################################    
+        ###### In loss attenuation, we do keep track of mean and variance of chi-squared
 
-        ### 
+        preds = self.pred_proposal_deltas[fg_inds[:, None], gt_class_cols].flatten()
+        gts = gt_proposal_deltas[fg_inds].flatten()
+        variance = self.pred_proposal_uncertain[fg_inds[:, None], gt_class_cols].flatten()
+
+        rng = default_rng()
+        dof = 75
+        no_samples = 100
+
+        # assert len(preds) > dof*no_samples, 'DoF*no_samples and len(preds) are {} {}'.format(dof*no_samples, len(preds))
+
+        chi_sq_samples = []
+
+        for i in range(no_samples):            
+            indices = rng.choice(len(preds), size = dof, replace = False)
+            chi_sq_variable = (preds[indices] - gts[indices])**2 / variance[indices]
+            chi_sq_samples.append(chi_sq_variable.sum())
+
+        chi_sq_samples = torch.stack(chi_sq_samples)
+
+        emp_mean = chi_sq_samples.mean()
+        emp_var = chi_sq_samples.var()
+        gt_mean = dof
+        gt_variance = 2*dof
+
+        mu1 = gt_mean*torch.ones_like(emp_mean)
+        mu2 = emp_mean
+        var1 = gt_variance*torch.ones_like(emp_var)
+        var2 = emp_var
+
+        actual_dist = torch.distributions.normal.Normal(mu1, var1**(0.5))
+        our_dist = torch.distributions.normal.Normal(mu2, var2**(0.5))
+
+        print("Emp mean and emp variance are {} {}".format(mu2, var2))
+
+        kldivergence = torch.distributions.kl.kl_divergence(our_dist, actual_dist) * 0.2
+        print("kl_div_chi_sq_closed_form is: {}".format(kldivergence))
+
+        mse = ((self.pred_proposal_deltas[fg_inds[:, None], gt_class_cols] - gt_proposal_deltas[fg_inds])**2).mean()
+        predicted_variance = (self.pred_proposal_uncertain[fg_inds[:, None], gt_class_cols]).mean()
+
+        loss_att_first_term = mse / predicted_variance
+
+        storage = get_event_storage()
+        storage.put_scalars(gt_mean=gt_mean,gt_variance= gt_variance,emp_mean=emp_mean,emp_variance=emp_var, mse = mse, predicted_variance = predicted_variance, loss_att_first_term = loss_att_first_term, kl_divergence = kldivergence)
+        ########################################################################################################################################################################################################################
+
         mahathresh = getMahaThreshold(0.7)
 
         ## Computing the loss attenuation
@@ -653,6 +764,71 @@ class FastRCNNOutputs(object):
         ########################################################################################################################################################################################################################
 
         return loss_attenuation_final
+
+    def collect_training_stats(self):
+        gt_proposal_deltas = self.box2box_transform.get_deltas(
+            self.proposals.tensor, self.gt_boxes.tensor
+        )
+        box_dim = gt_proposal_deltas.size(1)  # 4 or 5
+        cls_agnostic_bbox_reg = self.pred_proposal_deltas.size(1) == box_dim
+        device = self.pred_proposal_deltas.device
+
+        bg_class_ind = self.pred_class_logits.shape[1] - 1
+
+        # Box delta loss is only computed between the prediction for the gt class k
+        # (if 0 <= k < bg_class_ind) and the target; there is no loss defined on predictions
+        # for non-gt classes and background.
+        # Empty fg_inds produces a valid loss of zero as long as the size_average
+        # arg to smooth_l1_loss is False (otherwise it uses torch.mean internally
+        # and would produce a nan loss).
+        fg_inds = torch.nonzero((self.gt_classes >= 0) & (self.gt_classes < bg_class_ind)).squeeze(
+            1
+        )
+        if cls_agnostic_bbox_reg:
+            # pred_proposal_deltas only corresponds to foreground class for agnostic
+            gt_class_cols = torch.arange(box_dim, device=device)
+        else:
+            fg_gt_classes = self.gt_classes[fg_inds]
+            # pred_proposal_deltas for class k are located in columns [b * k : b * k + b],
+            # where b is the dimension of box representation (4 or 5)
+            # Note that compared to Detectron1,
+            # we do not perform bounding box regression for background classes.
+            gt_class_cols = box_dim * fg_gt_classes[:, None] + torch.arange(box_dim, device=device)
+
+        preds = self.pred_proposal_deltas[fg_inds[:, None], gt_class_cols].flatten()
+        gts = gt_proposal_deltas[fg_inds].flatten()
+        variance = self.pred_proposal_uncertain[fg_inds[:, None], gt_class_cols].flatten()
+
+        preds_numpy = preds.detach().clone().cpu().numpy()
+        gts_numpy = gts.cpu().numpy()
+        std_dev_numpy = (variance**0.5).detach().clone().cpu().numpy()
+
+        global mu
+        global sigma
+        global gt
+
+        if mu is 0:
+            mu = preds_numpy
+            sigma = std_dev_numpy
+            gt = gts_numpy
+        else:
+            mu = np.concatenate((mu, preds_numpy),axis=0)
+            sigma = np.concatenate((sigma, std_dev_numpy), axis = 0)
+            gt = np.concatenate((gt, gts_numpy), axis = 0)
+
+        if self.curr_iteration == self.cfg.CUSTOM_OPTIONS.RESIDUAL_MAX_ITER:
+            ## we have to save the residuals now!
+            print("The shape of dist_save is: {}".format(dist_save.shape))
+            data_dict = {'mu': mu, 'std_dev': sigma, 'gt': gt}
+            gt_dict = {'gt':gt}
+            mu_dict = {'mu':mu}
+            std_dev_dict = {'std_dev': sigma}
+            # val = store_and_plot_residuals(residual_variable = dist_save, cfg = self.cfg)
+            import ipdb; ipdb.set_trace()
+            np.save(os.path.join(self.cfg.CUSTOM_OPTIONS.RESIDUAL_DIR_NAME, self.cfg.CUSTOM_OPTIONS.MODEL_NAME + '_' + self.cfg.DATASETS.TRAIN[0] + '_' + '.npy'), data_dict) 
+            import sys; sys.exit(0)
+
+        return 0
 
     def collect_residuals(self):
         gt_proposal_deltas = self.box2box_transform.get_deltas(
@@ -1658,14 +1834,17 @@ class FastRCNNOutputs(object):
         if self.loss_type == 'smooth_l1':
             loss_name = 'smooth_l1_loss'
             loss_reg = self.smooth_l1_loss()
+        elif self.loss_type == 'collect_training_stats':
+            loss_name = self.loss_type
+            loss_reg = self.collect_training_stats()
         elif self.loss_type == 'collect_residuals':
             loss_name = self.loss_type
             loss_reg = self.collect_residuals()
         elif self.loss_type == 'loss_att':
             loss_name = 'loss_attenuation'
             loss_reg = self.loss_attenuation()
-        elif self.loss_type == 'loss_cal':
-            loss_name = 'loss_calibration'
+        elif self.loss_type == 'loss_calibration':
+            loss_name = self.loss_type
             loss_reg = self.loss_calibration()
         elif self.loss_type == 'mahalanobis_attenuation':
             loss_name = 'mahalanobis_loss_attenuation'
@@ -1846,10 +2025,30 @@ class FastRCNNOutputLayers(nn.Module):
             nn.init.constant_(l.bias, 0)
         if cfg is not None: 
             if cfg.CUSTOM_OPTIONS.DETECTOR_TYPE == 'probabilistic': 
-                #### Adding uncertainty prediction(not the best way but a good start) ####
-                self.bbox_uncertainty_pred = nn.Linear(input_size, num_bbox_reg_classes * box_dim)
-                nn.init.normal_(self.bbox_uncertainty_pred.weight, std=0.001)
-                nn.init.constant_(self.bbox_uncertainty_pred.bias, 0)
+                if cfg.CUSTOM_OPTIONS.NEW_UNCERTAINTY_HEAD:
+
+                    self.bbox_uncertainty_pred = nn.Sequential(
+                                                nn.Linear(input_size, int(3 * input_size / 4)),
+                                                nn.ReLU(inplace=True),
+                                                nn.Linear(int(3 * input_size / 4), int(input_size / 2)),
+                                                nn.ReLU(inplace=True),
+                                                nn.Linear(int(input_size / 2), num_bbox_reg_classes * box_dim),
+                                              )
+                    self.bbox_uncertainty_pred.apply(init_weights)
+
+                else:
+                    #### Adding uncertainty prediction(not the best way but a good start) ####
+                    self.bbox_uncertainty_pred = nn.Linear(input_size, num_bbox_reg_classes * box_dim)
+                    nn.init.normal_(self.bbox_uncertainty_pred.weight, std=0.001)
+                    nn.init.constant_(self.bbox_uncertainty_pred.bias, 0)
+                
+
+            if cfg.CUSTOM_OPTIONS.LEARN_RC_SHARPNESS:
+                self.sharpness = torch.nn.Parameter(data = torch.tensor(cfg.CUSTOM_OPTIONS.RICHARD_CURVE_SHARP).cuda(), requires_grad=True)
+                # self.sharpness.requires_grad = True
+
+            if cfg.CUSTOM_OPTIONS.TEMP_SCALE_ENABLED:
+                self.temp_scale = torch.nn.Parameter(data = torch.tensor(1.0).cuda(), requires_grad=True)
 
 
     def RichardCurve(self, x, low=0, high=1, sharp=0.5):
@@ -1865,7 +2064,13 @@ class FastRCNNOutputLayers(nn.Module):
                 region of Richard's curve
 
         """
-        return low + ((high - low) / (1 + torch.exp(-sharp * x)))
+        
+        if self.cfg.CUSTOM_OPTIONS.LEARN_RC_SHARPNESS:
+            print("richard's curve sharpness is: ", self.sharpness.item())
+            return low + ((high - low) / (1 + torch.exp(-self.sharpness * x)))
+        else:
+            return low + ((high - low) / (1 + torch.exp(-sharp * x)))
+
 
     def forward(self, x):
         
@@ -1881,7 +2086,8 @@ class FastRCNNOutputLayers(nn.Module):
             if self.cfg.CUSTOM_OPTIONS.DETECTOR_TYPE == 'probabilistic': 
                 # proposal_delta_uncertainty = self.RichardCurve(self.bbox_uncertainty_pred(x), low=1e-3, high=10, sharp=0.15) ## This was used for the model that works
                 proposal_delta_uncertainty = self.RichardCurve(self.bbox_uncertainty_pred(x), low=self.cfg.CUSTOM_OPTIONS.RICHARD_CURVE_LOW, high=self.cfg.CUSTOM_OPTIONS.RICHARD_CURVE_HIGH, sharp=self.cfg.CUSTOM_OPTIONS.RICHARD_CURVE_SHARP) ## This was used for the model that works
-                
+                if self.cfg.CUSTOM_OPTIONS.TEMP_SCALE_ENABLED:
+                    proposal_delta_uncertainty = self.temp_scale**2 * proposal_delta_uncertainty
                 return scores, proposal_deltas, proposal_delta_uncertainty
             else:
                 return scores, proposal_deltas, None

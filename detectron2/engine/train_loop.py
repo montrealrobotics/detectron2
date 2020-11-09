@@ -231,7 +231,7 @@ class SimpleTrainer(TrainerBase):
 
         # To avoid bad gradients, this is a temporary "hack" and probably very bad thing to do too, come back again to fix!!
         ## we do not do backward pass when we are collecting residuals or the loss has exploded!
-        if losses.item() < loss_huge and self.cfg.CUSTOM_OPTIONS.LOSS_TYPE_REG is not 'collect_residuals':
+        if losses.item() < loss_huge and self.cfg.CUSTOM_OPTIONS.LOSS_TYPE_REG not in  ['collect_residuals', 'collect_training_stats']:
             # print("Doing nothing")
             losses.backward()
             self.optimizer.step()

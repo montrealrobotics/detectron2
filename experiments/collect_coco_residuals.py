@@ -50,18 +50,18 @@ cfg.DATALOADER.NUM_WORKERS = 8
 cfg.MODEL.WEIGHTS = model_full_path
 # cfg.MODEL.WEIGHTS = "/network/tmp1/bhattdha/detectron2_kitti/resnet-26_FPN_3x_scratch/model_start.pth"
 # cfg.MODEL.WEIGHTS = "/network/tmp1/bhattdha/detectron2_kitti/model_0014999.pth"  # initialize fron deterministic model
-cfg.SOLVER.IMS_PER_BATCH = 10
-cfg.CUSTOM_OPTIONS.RESIDUAL_MAX_ITER = 500
+cfg.SOLVER.IMS_PER_BATCH = 20
+cfg.CUSTOM_OPTIONS.RESIDUAL_MAX_ITER = 5500
 # cfg.SOLVER.BASE_LR = 0.02
 cfg.SOLVER.BASE_LR = 0
 cfg.SOLVER.MAX_ITER =  1000000
 # cfg.MODEL.ROI_HEADS.BATCH_SIZE_PER_IMAGE = 512
 cfg.OUTPUT_DIR = model_dir_path
-cfg.SOLVER.CHECKPOINT_PERIOD = 10000
+cfg.SOLVER.CHECKPOINT_PERIOD = 100000
 
 cfg.CUSTOM_OPTIONS.DETECTOR_TYPE = 'probabilistic'
-cfg.CUSTOM_OPTIONS.LOSS_TYPE_REG = 'collect_residuals'
-cfg.DATASETS.TRAIN = ("coco_2017_val",)
+cfg.CUSTOM_OPTIONS.LOSS_TYPE_REG = 'collect_training_stats'
+cfg.DATASETS.TRAIN = ("coco_2017_train",)
 
 ## filename by which the model's residuals is to be stored!
 cfg.CUSTOM_OPTIONS.RESIDUAL_DIR_NAME = os.path.join(model_dir_path, 'residuals_storage')
@@ -71,7 +71,11 @@ os.makedirs(cfg.OUTPUT_DIR, exist_ok=True)
 os.makedirs(cfg.CUSTOM_OPTIONS.RESIDUAL_DIR_NAME, exist_ok=True)
 
 trainer = DefaultTrainer(cfg) 
+
 trainer.resume_or_load(resume=False) ## so it starts from the model we give
+
+for name, p in trainer.model.named_parameters():
+	p.requires_grad = False
 
 print("Start training!")
 print("The checkpoint iteration value is: ", cfg.SOLVER.CHECKPOINT_PERIOD)
