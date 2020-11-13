@@ -1,0 +1,33 @@
+#!/bin/bash
+
+python collect_cityscapes_residuals.py -name cityscapes_kl_div_chi_sq_closed_form_plus_smoothl1_v1 -model_name model_0014999.pth
+python collect_cityscapes_residuals.py -name cityscapes_kl_div_chi_sq_closed_form_plus_smoothl1_v2 -model_name model_0014999.pth
+python collect_cityscapes_residuals.py -name cityscapes_kl_div_chi_sq_closed_form_v1 -model_name model_0014999.pth
+python collect_cityscapes_residuals.py -name cityscapes_loss_attenuation -model_name model_0009999.pth
+python collect_cityscapes_residuals.py -name cityscapes_loss_calibration_v1 -model_name model_0014999.pth
+python collect_cityscapes_residuals.py -name cityscapes_mahalanobis_attenuation_v1 -model_name model_0014999.pth
+python collect_cityscapes_residuals.py -name cityscapes_temp_scaling_full_dataset -model_name model_0014999.pth
+python collect_cityscapes_residuals.py -name cityscapes_wasserstein_over_chi_squared_plus_smoothl1_v1 -model_name model_0014999.pth
+python collect_cityscapes_residuals.py -name cityscapes_wasserstein_over_chi_squared_plus_smoothl1_v2 -model_name model_0014999.pth
+python collect_cityscapes_residuals.py -name cityscapes_wasserstein_over_chi_squared_v1 -model_name model_0014999.pth
+python collect_cityscapes_residuals.py -name cityscapes_xyxy_temp_param_learn -model_name model_0011999.pth
+python collect_cityscapes_residuals.py -name cityscapes_forward_kl_div_chi_sq_closed_form_plus_smoothl1_v1 -model_name model_0014999.pth
+python collect_cityscapes_residuals.py -name cityscapes_forward_kl_div_chi_sq_closed_form_plus_smoothl1_v2 -model_name model_0014999.pth
+python collect_cityscapes_residuals.py -name cityscapes_forward_kl_div_chi_sq_closed_form_v1 -model_name model_0014999.pth
+python collect_cityscapes_residuals.py -name cityscapes_loss_attenuation_full_train -model_name model_0014999.pth
+
+# python evaluate_cityscapes_detetron.py -name cityscapes_kl_div_chi_sq_closed_form_plus_smoothl1_v1 -model_name model_0014999.pth
+# python evaluate_cityscapes_detetron.py -name cityscapes_kl_div_chi_sq_closed_form_plus_smoothl1_v2 -model_name model_0014999.pth
+# python evaluate_cityscapes_detetron.py -name cityscapes_kl_div_chi_sq_closed_form_v1 -model_name model_0014999.pth
+# python evaluate_cityscapes_detetron.py -name cityscapes_loss_attenuation -model_name model_0009999.pth
+# python evaluate_cityscapes_detetron.py -name cityscapes_loss_calibration_v1 -model_name model_0014999.pth
+# python evaluate_cityscapes_detetron.py -name cityscapes_mahalanobis_attenuation_v1 -model_name model_0014999.pth
+# python evaluate_cityscapes_detetron.py -name cityscapes_temp_scaling_full_dataset -model_name model_0014999.pth
+# python evaluate_cityscapes_detetron.py -name cityscapes_wasserstein_over_chi_squared_plus_smoothl1_v1 -model_name model_0014999.pth
+# python evaluate_cityscapes_detetron.py -name cityscapes_wasserstein_over_chi_squared_plus_smoothl1_v2 -model_name model_0014999.pth
+# python evaluate_cityscapes_detetron.py -name cityscapes_wasserstein_over_chi_squared_v1 -model_name model_0014999.pth
+# python evaluate_cityscapes_detetron.py -name cityscapes_xyxy_temp_param_learn -model_name model_0011999.pth
+# python evaluate_cityscapes_detetron.py -name cityscapes_forward_kl_div_chi_sq_closed_form_plus_smoothl1_v1 -model_name model_0014999.pth
+# python evaluate_cityscapes_detetron.py -name cityscapes_forward_kl_div_chi_sq_closed_form_plus_smoothl1_v2 -model_name model_0014999.pth
+# python evaluate_cityscapes_detetron.py -name cityscapes_forward_kl_div_chi_sq_closed_form_v1 -model_name model_0014999.pth
+# python evaluate_cityscapes_detetron.py -name cityscapes_loss_attenuation_full_train -model_name model_0014999.pth

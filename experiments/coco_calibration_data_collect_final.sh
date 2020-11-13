@@ -1,0 +1,27 @@
+#!/bin/bash
+
+python experiments/collect_coco_residuals.py -name coco_kl_div_chi_sq_closed_form_plus_smoothl1_v1 -model_name model_0029999.pth
+python experiments/collect_coco_residuals.py -name coco_kl_div_chi_sq_closed_form_v1 -model_name model_0029999.pth
+python experiments/collect_coco_residuals.py -name coco_loss_attenuation -model_name model_0019999.pth
+python experiments/collect_coco_residuals.py -name coco_loss_calibration_v1 -model_name model_0029999.pth
+python experiments/collect_coco_residuals.py -name coco_mahalanobis_penalty_v1 -model_name model_0029999.pth
+python experiments/collect_coco_residuals.py -name coco_wasserstein_over_chi_squared_plus_smoothl1_v1 -model_name model_0029999.pth
+python experiments/collect_coco_residuals.py -name coco_wasserstein_over_chi_squared_plus_smoothl1_v2 -model_name model_0029999.pth
+python experiments/collect_coco_residuals.py -name coco_wasserstein_over_chi_squared_plus_smoothl1_v3 -model_name model_0029999.pth
+python experiments/collect_coco_residuals.py -name coco_wasserstein_over_chi_squared_v1 -model_name model_0029999.pth
+python experiments/collect_coco_residuals.py -name coco_forward_kl_div_chi_sq_closed_form_plus_smoothl1_v1 -model_name model_0029999.pth
+python experiments/collect_coco_residuals.py -name coco_forward_kl_div_chi_sq_closed_form_v1 -model_name model_0029999.pth
+python experiments/collect_coco_residuals.py -name coco_loss_attenuation_full_train -model_name model_0029999.pth
+
+# python experiments/evaluate_coco_detectron.py -name coco_kl_div_chi_sq_closed_form_plus_smoothl1_v1 -model_name model_0029999.pth
+# python experiments/evaluate_coco_detectron.py -name coco_kl_div_chi_sq_closed_form_v1 -model_name model_0029999.pth
+# python experiments/evaluate_coco_detectron.py -name coco_loss_attenuation -model_name model_0019999.pth
+# python experiments/evaluate_coco_detectron.py -name coco_loss_calibration_v1 -model_name model_0029999.pth
+# python experiments/evaluate_coco_detectron.py -name coco_mahalanobis_penalty_v1 -model_name model_0029999.pth
+# python experiments/evaluate_coco_detectron.py -name coco_wasserstein_over_chi_squared_plus_smoothl1_v1 -model_name model_0029999.pth
+# python experiments/evaluate_coco_detectron.py -name coco_wasserstein_over_chi_squared_plus_smoothl1_v2 -model_name model_0029999.pth
+# python experiments/evaluate_coco_detectron.py -name coco_wasserstein_over_chi_squared_plus_smoothl1_v3 -model_name model_0029999.pth
+# python experiments/evaluate_coco_detectron.py -name coco_wasserstein_over_chi_squared_v1 -model_name model_0029999.pth
+# python experiments/evaluate_coco_detectron.py -name coco_forward_kl_div_chi_sq_closed_form_plus_smoothl1_v1 -model_name model_0029999.pth
+# python experiments/evaluate_coco_detectron.py -name coco_forward_kl_div_chi_sq_closed_form_v1 -model_name model_0029999.pth
+# python experiments/evaluate_coco_detectron.py -name coco_loss_attenuation_full_train -model_name model_0029999.pth
