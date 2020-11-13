@@ -50,8 +50,8 @@ cfg.DATALOADER.NUM_WORKERS = 8
 cfg.MODEL.WEIGHTS = model_full_path
 # cfg.MODEL.WEIGHTS = "/network/tmp1/bhattdha/detectron2_kitti/resnet-26_FPN_3x_scratch/model_start.pth"
 # cfg.MODEL.WEIGHTS = "/network/tmp1/bhattdha/detectron2_kitti/model_0014999.pth"  # initialize fron deterministic model
-cfg.SOLVER.IMS_PER_BATCH = 2
-cfg.CUSTOM_OPTIONS.RESIDUAL_MAX_ITER = 250
+cfg.SOLVER.IMS_PER_BATCH = 5
+cfg.CUSTOM_OPTIONS.RESIDUAL_MAX_ITER = 100
 # cfg.SOLVER.BASE_LR = 0.02
 cfg.SOLVER.BASE_LR = 0
 cfg.SOLVER.MAX_ITER =  1000000
@@ -60,7 +60,7 @@ cfg.OUTPUT_DIR = model_dir_path
 cfg.SOLVER.CHECKPOINT_PERIOD = 50000
 
 cfg.CUSTOM_OPTIONS.DETECTOR_TYPE = 'probabilistic'
-cfg.CUSTOM_OPTIONS.LOSS_TYPE_REG = 'collect_residuals'
+cfg.CUSTOM_OPTIONS.LOSS_TYPE_REG = 'collect_training_stats'
 cfg.DATASETS.TRAIN = ("cityscapes_fine_instance_seg_val",)
 
 ## filename by which the model's residuals is to be stored!

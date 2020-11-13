@@ -72,6 +72,9 @@ cfg.merge_from_file("/home/mila/b/bhattdha/detectron2/configs/COCO-Detection/fas
 # cfg.merge_from_file("/network/home/bhattdha/detectron2/configs/COCO-Detection/faster_rcnn_X_101_32x8d_FPN_deform_conv_3x.yaml")
 
 
+# cfg.CUSTOM_OPTIONS.TEMP_SCALE_ENABLED = True
+
+
 cfg.SOLVER.IMS_PER_BATCH = 24
 cfg.SOLVER.BASE_LR = 1e-4
 # cfg.SOLVER.STEPS: (210000, 250000)
@@ -79,7 +82,7 @@ cfg.SOLVER.MAX_ITER = 30000
 
 cfg.DATASETS.TEST = ()
 cfg.DATALOADER.NUM_WORKERS = 2
-# cfg.CUSTOM_OPTIONS.LOSS_WEIGHTS = [1.0, 2.0] 	
+# cfg.CUSTOM_OPTIONS.LOSS_WEIGHTS = [3.0, 1.0] 	
 # cfg.MODEL.WEIGHTS = "detectron2://COCO-Detection/faster_rcnn_R_50_FPN_3x/137849458/model_final_280758.pkl"  # initialize from model zoo
 # cfg.MODEL.WEIGHTS = "/home/mila/b/bhattdha/model_final_f6e8b1.pkl"
 cfg.MODEL.WEIGHTS = "/network/tmp1/bhattdha/detectron2_coco/coco_loss_attenuation/model_0019999.pth"
@@ -90,7 +93,7 @@ cfg.CUSTOM_OPTIONS.CORRUPT_BG = False
 cfg.STRUCTURED_EDGE_RESPONSE.ENABLE = False
 cfg.OUTPUT_DIR = '/network/tmp1/bhattdha/detectron2_coco/' + dir_name
 cfg.CUSTOM_OPTIONS.DETECTOR_TYPE = 'probabilistic'
-cfg.CUSTOM_OPTIONS.LOSS_TYPE_REG = 'mahalanobis_attenuation'
+cfg.CUSTOM_OPTIONS.LOSS_TYPE_REG = 'loss_att'
 
 # cfg.CUSTOM_OPTIONS.LEARN_RC_SHARPNESS = True
 # cfg.CUSTOM_OPTIONS.NEW_UNCERTAINTY_HEAD = True
@@ -126,6 +129,13 @@ stage_1_info = 'unfrozen'
 uncertainty_head = None
 
 for name, p in trainer.model.named_parameters():
+	if cfg.CUSTOM_OPTIONS.TEMP_SCALE_ENABLED:
+		if name == 'roi_heads.box_predictor.temp_scale':
+			p.requires_grad = True
+			continue
+		else:
+			p.requires_grad = False
+			continue
 	if 'roi_heads' not in name:
 		if stage_1_info is 'unfrozen':
 			stage_1_info = 'frozen'

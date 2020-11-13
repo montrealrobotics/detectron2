@@ -51,7 +51,7 @@ if cfg.CUSTOM_OPTIONS.TEMP_SCALE_TRAINING:
 
 # cfg.DATASETS.TEST = ()   # no metrics implemented for this dataset
 cfg.DATALOADER.NUM_WORKERS = 8
-cfg.CUSTOM_OPTIONS.LOSS_WEIGHTS = [0.5, 0.5] 
+# cfg.CUSTOM_OPTIONS.LOSS_WEIGHTS = [3.0, 1.0] 
 cfg.MODEL.WEIGHTS = "/network/tmp1/bhattdha/detectron2_cityscapes/cityscapes_loss_attenuation/model_0009999.pth"
 
 cfg.SOLVER.IMS_PER_BATCH = 15
@@ -60,9 +60,9 @@ cfg.SOLVER.BASE_LR = 1e-4
 cfg.SOLVER.MAX_ITER =  15000
 # cfg.MODEL.ROI_HEADS.BATCH_SIZE_PER_IMAGE = 512
 cfg.OUTPUT_DIR = '/network/tmp1/bhattdha/detectron2_cityscapes/' + dir_name
-cfg.SOLVER.CHECKPOINT_PERIOD = 500
+cfg.SOLVER.CHECKPOINT_PERIOD = 1000
 cfg.CUSTOM_OPTIONS.DETECTOR_TYPE = 'probabilistic'
-cfg.CUSTOM_OPTIONS.LOSS_TYPE_REG = 'wasserstein_over_chi_squared_plus_smoothl1'
+cfg.CUSTOM_OPTIONS.LOSS_TYPE_REG = 'loss_att'
 cfg.CUSTOM_OPTIONS.ENCODING_TYPE = 'xyxy'
 
 if cfg.CUSTOM_OPTIONS.DETECTOR_TYPE is 'deterministic':

@@ -94,13 +94,13 @@ for model_path in model_paths:
     # print(results)
 
 print(final_results)
-np.save(os.path.join(model_dir_path, 'results','final_results.npy'), final_results)
-import ipdb; ipdb.set_trace()
+if model_name == "all":
+    np.save(os.path.join(model_dir_path, 'results','final_results.npy'), final_results)
 
 # from detectron2.utils.visualizer import ColorMode
 # time_inference = []
 # # dataset_dicts = get_kitti_dicts("/network/tmp1/bhattdha/kitti_dataset", 'test')
-# image_names = glob.glob(root_dir+"/images/testing/*.png")
+# image_names = glob.glob(root_dir+"/images/testing/*.png")s
 # for idx, im_name in enumerate(image_names):   
 #     print(idx, im_name)
 #     im = cv2.imread(im_name)
