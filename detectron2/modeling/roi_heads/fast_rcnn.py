@@ -50,7 +50,40 @@ def init_weights(m):
         nn.init.normal_(m.weight, std=0.001)
         nn.init.constant_(m.bias, 0)
 
-def store_and_plot_residuals(residual_variable = None, cfg = None):
+
+## calculate expected calibration error
+# def ECE(x, mu, std_dev):
+#     emp_ps = []
+#     ece = []
+#     N = len(x)
+#     probs = np.arange(0.0 , 1.005, 0.005)
+#     for p in probs:
+#         N_p = ((x-mu)/std_dev < norm.ppf(p)).sum()
+#         emp_p = N_p/len(x)
+#         emp_ps.append(emp_p)
+#         ece.append(N_p/N*abs(emp_p-p))  
+#     ece = np.sum(ece)  
+#     return ece, emp_ps, probs
+
+## calculate expected calibration error
+def ECE(x, mu, std_dev):
+    eps = 0.005
+    emp_ps = []
+    ECE = []
+    N = len(x)
+    k = 0
+    list_p = np.arange(0,1.0+eps, eps)
+    for p in list_p:
+        N_p = ((x-mu)/std_dev < norm.ppf(p)).sum()
+        N_b = np.logical_and((x-mu)/std_dev < norm.ppf(p), (x-mu)/std_dev > norm.ppf(k)).sum()
+        emp_p = N_p / (len(x)) 
+        emp_ps.append(emp_p)
+        ECE.append((N_b / N) * abs(emp_p - p))
+        k = p
+    ece = np.sum(ECE) 
+    return ece, emp_ps, list_p
+
+def store_and_plot_residuals(residual_variable = None, cfg = None, data_dict = None):
 
 
     #######################################
@@ -60,10 +93,20 @@ def store_and_plot_residuals(residual_variable = None, cfg = None):
 
     assert residual_variable is not None
     assert cfg is not None
+    assert data_dict is not None    
 
     dists = residual_variable.flatten()
     mean_dist = dists.mean()
     variance_dist = dists.var()
+    
+    np.random.seed(42)
+    ece, emp_ps, probs = ECE( data_dict['gt'], data_dict['mu'], data_dict['std_dev'])
+    ece_sn_dict = {'ece_sn':ece, 'emp_ps_sn':emp_ps, 'probs':probs}
+    plt.plot(probs, emp_ps, 'k', linewidth=2)
+    title = "Fit results: ECE = %.2f" % (ece)
+    plt.title(title)
+    plt.savefig(os.path.join(cfg.CUSTOM_OPTIONS.RESIDUAL_DIR_NAME, cfg.CUSTOM_OPTIONS.MODEL_NAME + '_sn_reliability_diagram.png')) 
+    plt.clf()
 
     mu, std = norm.fit(dists)
     print("Mean and variance are: ", mu, std**2)
@@ -79,7 +122,6 @@ def store_and_plot_residuals(residual_variable = None, cfg = None):
     plt.title(title)
     plt.savefig(os.path.join(cfg.CUSTOM_OPTIONS.RESIDUAL_DIR_NAME, cfg.CUSTOM_OPTIONS.MODEL_NAME + '_standard_normal.png')) 
     plt.clf()
-
 
     df = 100
     dists = dists**2
@@ -97,6 +139,14 @@ def store_and_plot_residuals(residual_variable = None, cfg = None):
     samples = np.array(samples)
     data = samples
 
+    ece_cs, emp_ps_cs, probs_cs = ECE(samples, df, (2*df)**0.5)
+    ece_cs_dict = {'ece_cs': ece_cs, 'emp_ps_cs': emp_ps_cs, 'probs_cs':probs_cs}
+    plt.plot(probs_cs, emp_ps_cs, 'k', linewidth=2)
+    title = "Fit results: ECE = %.2f" % (ece_cs)
+    plt.title(title)
+    plt.savefig(os.path.join(cfg.CUSTOM_OPTIONS.RESIDUAL_DIR_NAME, cfg.CUSTOM_OPTIONS.MODEL_NAME + '_cs_reliability_diagram.png')) 
+    plt.clf()
+
     # Fit a normal distribution to the data:
     mu, std = norm.fit(data)
     print("Mean and variance are: ", mu, std**2)
@@ -111,7 +161,22 @@ def store_and_plot_residuals(residual_variable = None, cfg = None):
     title = "Fit results: mu = %.2f,  std = %.2f" % (mu, std)
     plt.title(title)
     plt.savefig(os.path.join(cfg.CUSTOM_OPTIONS.RESIDUAL_DIR_NAME, cfg.CUSTOM_OPTIONS.MODEL_NAME + '_chi_squared.png')) 
+    mu1 = df
+    mu2 = mu
+    var1 = 2*df
+    var2 = std**2        
 
+    print("Emp mean and emp variance are {} {}".format(mu2, var2))
+    wasserstein_distance = ((mu1 - mu2)**2 + var1 + var2 - 2*(var1*var2)**0.5) 
+
+    our_dist = torch.distributions.normal.Normal(mu1, var1**(0.5))
+    actual_dist = torch.distributions.normal.Normal(mu2, var2**(0.5))
+    kldivergence = torch.distributions.kl.kl_divergence(actual_dist, our_dist) 
+    dists = {'kld': kldivergence, 'wdist': wasserstein_distance, 'emp_mean': mu, 'emp_var': std**2, 'ECE_sn': ece_sn_dict, 'ECE_cs': ece_cs_dict}
+    print(dists)
+    data_dict['dists'] = dists
+    np.save(os.path.join(cfg.CUSTOM_OPTIONS.RESIDUAL_DIR_NAME, cfg.CUSTOM_OPTIONS.MODEL_NAME + '.npy'), np.array(dist_save))
+    np.save(os.path.join(cfg.CUSTOM_OPTIONS.RESIDUAL_DIR_NAME, cfg.CUSTOM_OPTIONS.MODEL_NAME + '_' + cfg.DATASETS.TRAIN[0] + '_all_data' + '.npy'), data_dict) 
     return 0
 
 
@@ -498,7 +563,7 @@ class FastRCNNOutputs(object):
 
         print("Emp mean and emp variance are {} {}".format(mu2, var2))
 
-        kldivergence = torch.distributions.kl.kl_divergence(our_dist, actual_dist) * 0.2
+        kldivergence = torch.distributions.kl.kl_divergence(actual_dist, our_dist) * 0.2
         print("kl_div_chi_sq_closed_form is: {}".format(kldivergence))
 
         mse = ((self.pred_proposal_deltas[fg_inds[:, None], gt_class_cols] - gt_proposal_deltas[fg_inds])**2).mean()
@@ -595,7 +660,7 @@ class FastRCNNOutputs(object):
 
         print("Emp mean and emp variance are {} {}".format(mu2, var2))
 
-        kldivergence = torch.distributions.kl.kl_divergence(our_dist, actual_dist) * 0.2
+        kldivergence = torch.distributions.kl.kl_divergence(actual_dist, our_dist) * 0.2
         print("kl_div_chi_sq_closed_form is: {}".format(kldivergence))
 
         mse = ((self.pred_proposal_deltas[fg_inds[:, None], gt_class_cols] - gt_proposal_deltas[fg_inds])**2).mean()
@@ -751,7 +816,7 @@ class FastRCNNOutputs(object):
 
         print("Emp mean and emp variance are {} {}".format(mu2, var2))
 
-        kldivergence = torch.distributions.kl.kl_divergence(our_dist, actual_dist) * 0.2
+        kldivergence = torch.distributions.kl.kl_divergence(actual_dist, our_dist) * 0.2
         print("kl_div_chi_sq_closed_form is: {}".format(kldivergence))
 
         mse = ((self.pred_proposal_deltas[fg_inds[:, None], gt_class_cols] - gt_proposal_deltas[fg_inds])**2).mean()
@@ -816,18 +881,25 @@ class FastRCNNOutputs(object):
             sigma = np.concatenate((sigma, std_dev_numpy), axis = 0)
             gt = np.concatenate((gt, gts_numpy), axis = 0)
 
+        std_normal_samples = (gts - preds) / variance.sqrt()
+        our_stuff = std_normal_samples.detach().clone().cpu().numpy()
+        print("shape of residual vector is {}".format(our_stuff.shape))
+
+        global dist_save
+        if dist_save is 0:
+            dist_save = our_stuff
+        else: 
+            dist_save = np.concatenate((dist_save, our_stuff),axis=0)
+
         if self.curr_iteration == self.cfg.CUSTOM_OPTIONS.RESIDUAL_MAX_ITER:
             ## we have to save the residuals now!
-            print("The shape of dist_save is: {}".format(dist_save.shape))
             data_dict = {'mu': mu, 'std_dev': sigma, 'gt': gt}
             gt_dict = {'gt':gt}
             mu_dict = {'mu':mu}
             std_dev_dict = {'std_dev': sigma}
-            # val = store_and_plot_residuals(residual_variable = dist_save, cfg = self.cfg)
-            import ipdb; ipdb.set_trace()
-            np.save(os.path.join(self.cfg.CUSTOM_OPTIONS.RESIDUAL_DIR_NAME, self.cfg.CUSTOM_OPTIONS.MODEL_NAME + '_' + self.cfg.DATASETS.TRAIN[0] + '_' + '.npy'), data_dict) 
+            val = store_and_plot_residuals(residual_variable = dist_save, cfg = self.cfg, data_dict = data_dict)
             import sys; sys.exit(0)
-
+            
         return 0
 
     def collect_residuals(self):
@@ -1104,7 +1176,7 @@ class FastRCNNOutputs(object):
 
         print("Emp mean and emp variance are {} {}".format(mu2, var2))
 
-        kldivergence = torch.distributions.kl.kl_divergence(our_dist, actual_dist) * 0.2
+        kldivergence = torch.distributions.kl.kl_divergence(actual_dist, our_dist) * 0.2
         print("kl_div_chi_sq_closed_form is: {}".format(kldivergence))
 
         mse = ((self.pred_proposal_deltas[fg_inds[:, None], gt_class_cols] - gt_proposal_deltas[fg_inds])**2).mean()
@@ -1176,7 +1248,7 @@ class FastRCNNOutputs(object):
         print("Emp mean and emp variance are {} {}".format(mu2, var2))
 
         # https://pytorch.org/docs/stable/_modules/torch/distributions/kl.html#kl_divergence
-        kldivergence = torch.distributions.kl.kl_divergence(our_dist, actual_dist) 
+        kldivergence = torch.distributions.kl.kl_divergence(actual_dist, our_dist) 
         print("kl_div_standard_normal_closed_form is {}".format(kldivergence))
 
 
@@ -2087,6 +2159,7 @@ class FastRCNNOutputLayers(nn.Module):
                 # proposal_delta_uncertainty = self.RichardCurve(self.bbox_uncertainty_pred(x), low=1e-3, high=10, sharp=0.15) ## This was used for the model that works
                 proposal_delta_uncertainty = self.RichardCurve(self.bbox_uncertainty_pred(x), low=self.cfg.CUSTOM_OPTIONS.RICHARD_CURVE_LOW, high=self.cfg.CUSTOM_OPTIONS.RICHARD_CURVE_HIGH, sharp=self.cfg.CUSTOM_OPTIONS.RICHARD_CURVE_SHARP) ## This was used for the model that works
                 if self.cfg.CUSTOM_OPTIONS.TEMP_SCALE_ENABLED:
+                    print("temp scale parameter value is: ", self.temp_scale.item())
                     proposal_delta_uncertainty = self.temp_scale**2 * proposal_delta_uncertainty
                 return scores, proposal_deltas, proposal_delta_uncertainty
             else:
