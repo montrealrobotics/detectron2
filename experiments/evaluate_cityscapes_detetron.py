@@ -73,6 +73,12 @@ for model_path in model_paths:
     cfg.OUTPUT_DIR = '/network/tmp1/bhattdha/detectron2_cityscapes/' + dir_name + '/'
     # import pdb; pdb.set_trace()
 
+    ### test isotonic regression model
+    # cfg.CUSTOM_OPTIONS.ISOTONIC_REG = True
+    # cfg.CUSTOM_OPTIONS.ISOTONIC_MODEL_PATH = '/home/mila/b/bhattdha/detectron2/detectron2/modeling/roi_heads/isotonic_reg_gp_beta/models/cityscapes_isotonic_loss_att.pkl'
+    cfg.CUSTOM_OPTIONS.GP_BETA_REG = True
+    cfg.CUSTOM_OPTIONS.GP_BETA_MODEL_PATH = '/home/mila/b/bhattdha/detectron2/detectron2/modeling/roi_heads/isotonic_reg_gp_beta/models/cityscapes_gpbeta_loss_att.pkl'
+
     """Now, we perform inference with the trained model on the kitti dataset. First, let's create a predictor using the model we just trained:"""
     cfg.MODEL.WEIGHTS = model_path
     # cfg.OUTPUT_DIR = '/network/tmp1/bhattdha/detectron2_kitti/' + dir_name

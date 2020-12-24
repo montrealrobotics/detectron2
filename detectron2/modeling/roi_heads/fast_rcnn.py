@@ -68,20 +68,21 @@ def init_weights(m):
 ## calculate expected calibration error
 def ECE(x, mu, std_dev):
     eps = 0.005
-    emp_ps = []
+    emp_ac_ps = []
     ECE = []
+    cal_curve_stats = []
     N = len(x)
     k = 0
     list_p = np.arange(0,1.0+eps, eps)
     for p in list_p:
         N_p = ((x-mu)/std_dev < norm.ppf(p)).sum()
         N_b = np.logical_and((x-mu)/std_dev < norm.ppf(p), (x-mu)/std_dev > norm.ppf(k)).sum()
-        emp_p = N_p / (len(x)) 
-        emp_ps.append(emp_p)
-        ECE.append((N_b / N) * abs(emp_p - p))
+        emp_p = N_b / N
+        emp_ac_ps.append(N_p / N)
+        ECE.append((N_b / N) * abs(emp_p - eps))
         k = p
     ece = np.sum(ECE) 
-    return ece, emp_ps, list_p
+    return ece, emp_ac_ps, list_p
 
 def store_and_plot_residuals(residual_variable = None, cfg = None, data_dict = None):
 

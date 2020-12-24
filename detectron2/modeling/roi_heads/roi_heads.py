@@ -4,7 +4,7 @@ import numpy as np
 from typing import Dict
 import torch
 from torch import nn
-
+import os
 from detectron2.layers import ShapeSpec
 from detectron2.structures import Boxes, Instances, pairwise_iou
 from detectron2.utils.events import get_event_storage
@@ -25,6 +25,7 @@ import bz2
 import pickle
 import _pickle as cPickle
 import h5py
+from .isotonic_reg_gp_beta import utils
 
 ROI_HEADS_REGISTRY = Registry("ROI_HEADS")
 ROI_HEADS_REGISTRY.__doc__ = """
@@ -687,6 +688,34 @@ class StandardROIHeads(ROIHeads):
 
         # This is where we save the embeddings
         pred_class_logits, pred_proposal_deltas, pred_proposal_uncertain = self.box_predictor(box_features)
+        
+
+
+        if self.cfg.CUSTOM_OPTIONS.ISOTONIC_REG:
+            assert os.path.exists(self.cfg.CUSTOM_OPTIONS.ISOTONIC_MODEL_PATH), 'No model found at path {}'.format(self.cfg.CUSTOM_OPTIONS.ISOTONIC_MODEL_PATH)
+            assert not self.training, "Isotonic regression or GP beta can't run in train mode."
+            assert not self.cfg.CUSTOM_OPTIONS.GP_BETA_REG, 'Isotonic regression is running, set cfg.CUSTOM_OPTIONS.GP_BETA_REG to False.'
+            ppd_shape = pred_proposal_deltas.shape
+            ppu_shape = pred_proposal_uncertain.shape
+            pred_proposal_deltas = pred_proposal_deltas.flatten()
+            pred_proposal_uncertain = pred_proposal_uncertain.flatten()        
+            pred_proposal_deltas, pred_proposal_uncertain = utils.isotonic_regression(pred_proposal_deltas.clone().cpu().numpy(), pred_proposal_uncertain.clone().cpu().numpy(), self.cfg.CUSTOM_OPTIONS.ISOTONIC_MODEL_PATH)
+            pred_proposal_deltas = torch.reshape(pred_proposal_deltas, ppd_shape)
+            pred_proposal_uncertain = torch.reshape(pred_proposal_uncertain, ppd_shape)
+
+
+        if self.cfg.CUSTOM_OPTIONS.GP_BETA_REG:
+            assert os.path.exists(self.cfg.CUSTOM_OPTIONS.GP_BETA_MODEL_PATH), 'No model found at path {}'.format(self.cfg.CUSTOM_OPTIONS.GP_BETA_MODEL_PATH)
+            assert not self.training, "Isotonic regression or GP beta can't run in train mode."
+            assert not self.cfg.CUSTOM_OPTIONS.ISOTONIC_REG, 'GP Beta is running, set cfg.CUSTOM_OPTIONS.ISOTONIC_REG to False.'
+            print("Running GP beta model!")
+            ppd_shape = pred_proposal_deltas.shape
+            ppu_shape = pred_proposal_uncertain.shape
+            pred_proposal_deltas = pred_proposal_deltas.flatten()
+            pred_proposal_uncertain = pred_proposal_uncertain.flatten()        
+            pred_proposal_deltas, pred_proposal_uncertain = utils.gp_beta(pred_proposal_deltas.clone().cpu().numpy(), pred_proposal_uncertain.clone().cpu().numpy(), self.cfg.CUSTOM_OPTIONS.GP_BETA_MODEL_PATH)
+            pred_proposal_deltas = torch.reshape(pred_proposal_deltas, ppd_shape)
+            pred_proposal_uncertain = torch.reshape(pred_proposal_uncertain, ppd_shape)
 
         del box_features
 

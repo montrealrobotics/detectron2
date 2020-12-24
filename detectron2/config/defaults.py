@@ -647,6 +647,15 @@ _C.CUSTOM_OPTIONS.RESIDUAL_DIR_NAME = 'dir_name'
 ## model for which residuals are collected
 _C.CUSTOM_OPTIONS.MODEL_NAME = 'model_main'
 
+## isotonic regression flag
+_C.CUSTOM_OPTIONS.ISOTONIC_REG = False
+_C.CUSTOM_OPTIONS.ISOTONIC_MODEL_PATH = '/path/to/model/name'
+
+## GP beta regression flag
+_C.CUSTOM_OPTIONS.GP_BETA_REG = False
+_C.CUSTOM_OPTIONS.GP_BETA_MODEL_PATH = '/path/to/model/name'
+
+
 ## in how many iterations will the residuals of the entire
 ## dataset be collected? This should be changed based on 
 ## length of the dataset!

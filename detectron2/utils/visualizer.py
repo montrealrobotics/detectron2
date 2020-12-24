@@ -559,7 +559,8 @@ class Visualizer:
         if labels is not None:
             assert len(labels) == num_instances
         if assigned_colors is None:
-            assigned_colors = [random_color(rgb=True, maximum=1) for _ in range(num_instances)]
+            # assigned_colors = [random_color(rgb=True, maximum=1) for _ in range(num_instances)]
+            assigned_colors = [np.array([255.0/255, 0.0/255, 0.0/255.0], dtype=np.float32) for _ in range(num_instances)]
         if num_instances == 0:
             return self.output
         if boxes is not None and boxes.shape[1] == 5:

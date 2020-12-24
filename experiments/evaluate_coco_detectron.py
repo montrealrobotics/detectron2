@@ -17,6 +17,7 @@ from contextlib import redirect_stdout
 import argparse
 from detectron2.evaluation import COCOEvaluator, inference_on_dataset
 from detectron2.data import build_detection_test_loader
+import pathlib
 from detectron2.engine import DefaultTrainer
 from detectron2.config import get_cfg
 
@@ -70,6 +71,10 @@ for model_path in model_paths:
     cfg.DATALOADER.NUM_WORKERS = 2
     cfg.SOLVER.IMS_PER_BATCH = 10
     cfg.MODEL.ROI_HEADS.SCORE_THRESH_TEST = 0.05
+
+    ### test isotonic regression model
+    cfg.CUSTOM_OPTIONS.ISOTONIC_REG = True
+    cfg.CUSTOM_OPTIONS.ISOTONIC_MODEL_PATH = '/home/mila/b/bhattdha/detectron2/detectron2/modeling/roi_heads/isotonic_reg_gp_beta/models/coco_isotonic_loss_att.pkl'
 
     cfg.OUTPUT_DIR = '/network/tmp1/bhattdha/detectron2_coco/' + dir_name + '/'
     # cfg.OUTPUT_DIR = '/network/tmp1/bhattdha/detectron2_kitti/resnet-50_FPN/'
