@@ -82,7 +82,7 @@ cfg.SOLVER.MAX_ITER = 30000
 
 cfg.DATASETS.TEST = ()
 cfg.DATALOADER.NUM_WORKERS = 2
-# cfg.CUSTOM_OPTIONS.LOSS_WEIGHTS = [3.0, 1.0] 	
+cfg.CUSTOM_OPTIONS.LOSS_WEIGHTS = [5.0, 1.0] 	
 # cfg.MODEL.WEIGHTS = "detectron2://COCO-Detection/faster_rcnn_R_50_FPN_3x/137849458/model_final_280758.pkl"  # initialize from model zoo
 # cfg.MODEL.WEIGHTS = "/home/mila/b/bhattdha/model_final_f6e8b1.pkl"
 cfg.MODEL.WEIGHTS = "/network/tmp1/bhattdha/detectron2_coco/coco_loss_attenuation/model_0019999.pth"
@@ -93,7 +93,7 @@ cfg.CUSTOM_OPTIONS.CORRUPT_BG = False
 cfg.STRUCTURED_EDGE_RESPONSE.ENABLE = False
 cfg.OUTPUT_DIR = '/network/tmp1/bhattdha/detectron2_coco/' + dir_name
 cfg.CUSTOM_OPTIONS.DETECTOR_TYPE = 'probabilistic'
-cfg.CUSTOM_OPTIONS.LOSS_TYPE_REG = 'loss_att'
+cfg.CUSTOM_OPTIONS.LOSS_TYPE_REG = 'kl_div_CLT_closed_form_gaussian_plus_smoothl1'
 
 # cfg.CUSTOM_OPTIONS.LEARN_RC_SHARPNESS = True
 # cfg.CUSTOM_OPTIONS.NEW_UNCERTAINTY_HEAD = True

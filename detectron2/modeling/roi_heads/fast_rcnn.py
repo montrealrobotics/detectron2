@@ -956,6 +956,8 @@ class FastRCNNOutputs(object):
 
         return 0
 
+
+
     def wasserstein_over_chi_squared(self):
         """
         Apply wasserstein distance over the chi-squared distributions
@@ -1106,6 +1108,106 @@ class FastRCNNOutputs(object):
         storage.put_scalar("wasserstein_loss/standard-normal", wasserstein_distance)
 
         return wasserstein_distance         
+
+
+    def kl_div_CLT_closed_form_gaussian(self):
+        """
+        Apply KL divergence over standard-normal distribution
+        derived from Central limit theorem
+
+        Returns:
+            scalar Tensor
+        """
+        gt_proposal_deltas = self.box2box_transform.get_deltas(
+            self.proposals.tensor, self.gt_boxes.tensor
+        )
+        box_dim = gt_proposal_deltas.size(1)  # 4 or 5
+        cls_agnostic_bbox_reg = self.pred_proposal_deltas.size(1) == box_dim
+        device = self.pred_proposal_deltas.device
+
+        bg_class_ind = self.pred_class_logits.shape[1] - 1
+
+        # Box delta loss is only computed between the prediction for the gt class k
+        # (if 0 <= k < bg_class_ind) and the target; there is no loss defined on predictions
+        # for non-gt classes and background.
+        # Empty fg_inds produces a valid loss of zero as long as the size_average
+        # arg to smooth_l1_loss is False (otherwise it uses torch.mean internally
+        # and would produce a nan loss).
+        fg_inds = torch.nonzero((self.gt_classes >= 0) & (self.gt_classes < bg_class_ind)).squeeze(
+            1
+        )
+        if cls_agnostic_bbox_reg:
+            # pred_proposal_deltas only corresponds to foreground class for agnostic
+            gt_class_cols = torch.arange(box_dim, device=device)
+        else:
+            fg_gt_classes = self.gt_classes[fg_inds]
+            # pred_proposal_deltas for class k are located in columns [b * k : b * k + b],
+            # where b is the dimension of box representation (4 or 5)
+            # Note that compared to Detectron1,
+            # we do not perform bounding box regression for background classes.
+            gt_class_cols = box_dim * fg_gt_classes[:, None] + torch.arange(box_dim, device=device)
+
+        preds = self.pred_proposal_deltas[fg_inds[:, None], gt_class_cols].flatten()
+        gts = gt_proposal_deltas[fg_inds].flatten()
+        variance = self.pred_proposal_uncertain[fg_inds[:, None], gt_class_cols].flatten()
+
+        print("Total number of samples are: {}".format(preds.shape))
+
+        rng = default_rng()
+        sample_size = 40
+        no_samples = 400
+
+        # assert len(preds) > dof*no_samples, 'DoF*no_samples and len(preds) are {} {}'.format(dof*no_samples, len(preds))
+
+        mean_samples_vector = []
+
+        for i in range(no_samples):            
+            indices = rng.choice(len(preds), size = sample_size, replace = False)
+            sample_mean = torch.mean(0.5 * (1 + torch.erf((gts[indices] - preds[indices]) * torch.sqrt(variance[indices]).reciprocal() / np.sqrt(2))))
+            mean_samples_vector.append(sample_mean)
+
+        mean_samples_vector = torch.stack(mean_samples_vector)
+
+        ## CDF of large number of samples
+        ## look like a uniform distribution
+        low = 0.0
+        high = 1.0
+
+        ## mean and variance of standard uniform distribution
+        ## this results out of interesting property of CLT
+        mu_uni = (low + high) / 2.0
+        sigma_uni = np.sqrt((high - low)**2 / 12.0)
+
+        new_sample_means = (np.sqrt(sample_size) * (mean_samples_vector * sample_size - torch.mean(mean_samples_vector * sample_size))) / sigma_uni
+
+        emp_mean = new_sample_means.mean()
+        emp_var = new_sample_means.var()
+        gt_mean = 0
+        gt_variance = 1
+
+        mu1 = gt_mean*torch.ones_like(emp_mean)
+        mu2 = emp_mean
+        var1 = gt_variance*torch.ones_like(emp_var)
+        var2 = emp_var        
+
+        actual_dist = torch.distributions.normal.Normal(mu1, var1**(0.5))
+        our_dist = torch.distributions.normal.Normal(mu2, var2**(0.5))
+
+        print("Emp mean and emp variance are {} {}".format(mu2, var2))
+
+        kldivergence = torch.distributions.kl.kl_divergence(actual_dist, our_dist) * 0.2
+        print("kl_div_chi_sq_closed_form is: {}".format(kldivergence))
+        
+        mse = ((self.pred_proposal_deltas[fg_inds[:, None], gt_class_cols] - gt_proposal_deltas[fg_inds])**2).mean()
+        predicted_variance = (self.pred_proposal_uncertain[fg_inds[:, None], gt_class_cols]).mean()
+
+        loss_att_first_term = mse / predicted_variance
+
+        storage = get_event_storage()
+        storage.put_scalars(gt_mean=gt_mean,gt_variance= gt_variance,emp_mean=emp_mean,emp_variance=emp_var, mse = mse, predicted_variance = predicted_variance, loss_att_first_term = loss_att_first_term)
+        storage.put_scalar("kldivergence/CLT-gaussian", kldivergence)
+
+        return kldivergence
 
     def kl_div_chi_sq_closed_form(self):
         """
@@ -1899,7 +2001,8 @@ class FastRCNNOutputs(object):
         'js_div_chi_sq_empirical',
         'js_div_standard_normal_empirical'
         'wasserstein_over_standard_normal'
-        'wasserstein_over_standard_normal_plus_smoothl1'
+        'wasserstein_over_standard_normal_plus_smoothl1',
+        'kl_div_CLT_closed_form_gaussian'
         """
 
         w1, w2 = self.cfg.CUSTOM_OPTIONS.LOSS_WEIGHTS
@@ -1946,6 +2049,9 @@ class FastRCNNOutputs(object):
         elif self.loss_type == 'js_div_standard_normal_empirical_plus_smoothl1':
             loss_name = self.loss_type
             loss_reg = w1*self.js_div_standard_normal_empirical() + w2*self.smooth_l1_loss()
+        elif self.loss_type == 'kl_div_CLT_closed_form_gaussian_plus_smoothl1':
+            loss_name = self.loss_type
+            loss_reg = w1*self.kl_div_CLT_closed_form_gaussian() + w2*self.smooth_l1_loss()
 
         elif self.loss_type == 'kl_div_chi_sq_closed_form':
             loss_name = self.loss_type
@@ -1970,8 +2076,7 @@ class FastRCNNOutputs(object):
             loss_reg = self.js_div_chi_sq_empirical() 
         elif self.loss_type == 'js_div_standard_normal_empirical':
             loss_name = self.loss_type
-            loss_reg = self.js_div_standard_normal_empirical() 
-        
+            loss_reg = self.js_div_standard_normal_empirical()         
         elif self.loss_type == 'wasserstein_over_chi_squared':
             loss_name = self.loss_type
             loss_reg = self.wasserstein_over_chi_squared()
@@ -1988,6 +2093,9 @@ class FastRCNNOutputs(object):
         elif self.loss_type == 'variance_loss':
             loss_name = self.loss_type
             loss_reg = self.variance_loss()
+        elif self.loss_type == 'kl_div_CLT_closed_form_gaussian':
+            loss_name = self.loss_type
+            loss_reg = self.kl_div_CLT_closed_form_gaussian()
 
         return {
             loss_name: loss_reg,

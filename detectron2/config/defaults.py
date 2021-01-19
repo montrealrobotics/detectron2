@@ -617,7 +617,9 @@ loss type regression when DETECTOR_TYPE is probabilistic: ['collect_residuals',
 													        'js_div_chi_sq_empirical',
 													        'js_div_standard_normal_empirical',
 													        'wasserstein_over_standard_normal_plus_smoothl1',
-													        'wasserstein_over_standard_normal',]
+													        'wasserstein_over_standard_normal',
+													        'kl_div_CLT_closed_form_gaussian',
+													        'kl_div_CLT_closed_form_gaussian_plus_smoothl1']
 
 """
 
